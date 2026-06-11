@@ -17,13 +17,19 @@ def select_repositories(
 
     A package is selected when ``tags`` is empty/``None`` or intersects the
     package's own ``tags``. A repository is selected when at least one of its
-    packages is selected; its ``selected_packages`` names are sorted.
+    packages is selected; its ``selected_packages`` names are sorted. Raises
+    :class:`ComposeError` when a repository's ``packages`` is not a mapping.
     """
     repositories = distribution.get("repositories") or {}
     wanted = set(tags or [])
     selected = []
     for key, spec in sorted(repositories.items()):
         packages = (spec or {}).get("packages") or {}
+        if not isinstance(packages, dict):
+            raise ComposeError(
+                f"repository {key!r} has 'packages' that is not a mapping "
+                f"of package name to spec (got {type(packages).__name__})"
+            )
         if not wanted:
             names = sorted(packages)
         else:
@@ -45,7 +51,7 @@ def to_repos_entries(repositories: list[tuple[str, dict, list[str]]]) -> dict:
     ``type``/``url``/``version`` plus a ``packages`` manifest naming the
     selected registered packages (vcstool ignores unknown keys). Raises
     :class:`ComposeError` when a repository is missing ``url`` or
-    ``ref.value``.
+    ``ref.value``, or when its ``ref`` is not a mapping.
     """
     entries: dict = {}
     for key, spec, package_names in repositories:
@@ -54,6 +60,11 @@ def to_repos_entries(repositories: list[tuple[str, dict, list[str]]]) -> dict:
         if not url:
             raise ComposeError(f"repository {key!r} is missing 'url'")
         ref = spec.get("ref") or {}
+        if not isinstance(ref, dict):
+            raise ComposeError(
+                f"repository {key!r} has 'ref' that is not a mapping "
+                f"with 'kind' and 'value' (got {type(ref).__name__})"
+            )
         version = ref.get("value")
         if not version:
             raise ComposeError(f"repository {key!r} is missing 'ref.value'")

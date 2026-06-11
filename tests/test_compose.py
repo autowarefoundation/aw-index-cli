@@ -177,6 +177,35 @@ def test_to_repos_entries_none_spec_raises_url():
         to_repos_entries([("r", None, ["p"])])
 
 
+def test_to_repos_entries_ref_string_raises():
+    with pytest.raises(
+        ComposeError, match="repository 'r' has 'ref' that is not a mapping"
+    ) as excinfo:
+        to_repos_entries([("r", {"url": "https://x/r", "ref": "main"}, ["p"])])
+    assert "got str" in str(excinfo.value)
+
+
+def test_select_packages_list_raises():
+    distribution = {
+        "ros_distro": "jazzy",
+        "repositories": {
+            "r": {
+                "url": "https://x/r",
+                "ref": {"kind": "branch", "value": "main"},
+                "packages": ["pkg_a", "pkg_b"],
+            },
+        },
+    }
+    with pytest.raises(
+        ComposeError, match="repository 'r' has 'packages' that is not a mapping"
+    ) as excinfo:
+        select_repositories(distribution)
+    assert "got list" in str(excinfo.value)
+    # The same clean error under a tag filter (previously an AttributeError).
+    with pytest.raises(ComposeError, match="'packages'"):
+        select_repositories(distribution, tags=["sensing"])
+
+
 def test_provenance_header_lines_start_with_hash():
     lines = provenance_header(
         tool_version="0.1.0",

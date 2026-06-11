@@ -105,7 +105,7 @@ repositories:
 `compose` only accepts distribution documents with `schema_version: "2"`.
 Anything else — older `"1"` documents, a missing field, or a future version —
 aborts with a non-zero exit and a clear error naming the found version
-("… not supported by this aw-index-cli; please upgrade"). It never emits
+("… not supported by this aw-index-cli (supports: '2')"). It never emits
 silently empty output for a document it does not understand.
 
 ### Key options

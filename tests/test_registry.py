@@ -63,7 +63,10 @@ def test_unsupported_schema_version_raises(tmp_path):
         load_distribution("jazzy", path=f)
     message = str(excinfo.value)
     assert "'1'" in message
-    assert "not supported by this aw-index-cli; please upgrade" in message
+    assert "not supported by this aw-index-cli" in message
+    assert "(supports: '2')" in message
+    # The document may be older than the CLI; never advise upgrading it.
+    assert "upgrade" not in message
 
 
 def test_missing_schema_version_raises(tmp_path):
@@ -76,13 +79,64 @@ def test_missing_schema_version_raises(tmp_path):
         load_distribution("jazzy", path=f)
     message = str(excinfo.value)
     assert "None" in message
-    assert "not supported by this aw-index-cli; please upgrade" in message
+    assert "not supported by this aw-index-cli" in message
+    assert "(supports: '2')" in message
 
 
 def test_non_mapping_raises(tmp_path):
     f = tmp_path / "jazzy.yaml"
     f.write_text("- just\n- a\n- list\n", encoding="utf-8")
     with pytest.raises(RegistryError, match="not a mapping"):
+        load_distribution("jazzy", path=f)
+
+
+def test_repositories_list_raises(tmp_path):
+    f = tmp_path / "jazzy.yaml"
+    f.write_text(
+        yaml.safe_dump(
+            {
+                "schema_version": "2",
+                "ros_distro": "jazzy",
+                "repositories": ["alpha-mono", "mid-repo"],
+            }
+        ),
+        encoding="utf-8",
+    )
+    with pytest.raises(
+        RegistryError, match="'repositories' must be a mapping"
+    ) as excinfo:
+        load_distribution("jazzy", path=f)
+    assert "got list" in str(excinfo.value)
+
+
+def test_repository_entry_string_raises(tmp_path):
+    f = tmp_path / "jazzy.yaml"
+    f.write_text(
+        yaml.safe_dump(
+            {
+                "schema_version": "2",
+                "ros_distro": "jazzy",
+                "repositories": {"alpha-mono": "https://x/alpha_mono"},
+            }
+        ),
+        encoding="utf-8",
+    )
+    with pytest.raises(
+        RegistryError, match="repository 'alpha-mono' must be a mapping"
+    ) as excinfo:
+        load_distribution("jazzy", path=f)
+    assert "got str" in str(excinfo.value)
+
+
+def test_repository_entry_null_raises(tmp_path):
+    f = tmp_path / "jazzy.yaml"
+    f.write_text(
+        "schema_version: '2'\nros_distro: jazzy\nrepositories:\n  bare-repo:\n",
+        encoding="utf-8",
+    )
+    with pytest.raises(
+        RegistryError, match="repository 'bare-repo' must be a mapping"
+    ):
         load_distribution("jazzy", path=f)
 
 

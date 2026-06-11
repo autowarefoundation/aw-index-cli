@@ -173,7 +173,98 @@ def test_compose_rejects_schema_version_1(tmp_path, capsys):
     assert captured.out == ""
     assert captured.err.startswith("error:")
     assert "'1'" in captured.err
-    assert "not supported by this aw-index-cli; please upgrade" in captured.err
+    assert "not supported by this aw-index-cli" in captured.err
+    assert "(supports: '2')" in captured.err
+    # The document is older than the CLI, so no "please upgrade" advice.
+    assert "upgrade" not in captured.err
+
+
+def _compose_malformed(tmp_path, capsys, doc):
+    """Run compose against ``doc`` and assert a clean error, returning stderr."""
+    dist_dir = tmp_path / "distributions"
+    dist_dir.mkdir()
+    (dist_dir / "jazzy.yaml").write_text(yaml.safe_dump(doc), encoding="utf-8")
+    rc = main(
+        [
+            "compose",
+            "--rosdistro",
+            "jazzy",
+            "--registry-path",
+            str(tmp_path),
+            "--stdout",
+        ]
+    )
+    assert rc == 1
+    captured = capsys.readouterr()
+    # Clean failure: nothing on stdout, a single error line, no traceback.
+    assert captured.out == ""
+    assert captured.err.startswith("error:")
+    assert "Traceback" not in captured.err
+    return captured.err
+
+
+def test_compose_repositories_list_clean_error(tmp_path, capsys):
+    err = _compose_malformed(
+        tmp_path,
+        capsys,
+        {
+            "schema_version": "2",
+            "ros_distro": "jazzy",
+            "repositories": ["alpha-mono"],
+        },
+    )
+    assert "'repositories' must be a mapping" in err
+
+
+def test_compose_repository_entry_string_clean_error(tmp_path, capsys):
+    err = _compose_malformed(
+        tmp_path,
+        capsys,
+        {
+            "schema_version": "2",
+            "ros_distro": "jazzy",
+            "repositories": {"alpha-mono": "https://x/alpha_mono"},
+        },
+    )
+    assert "repository 'alpha-mono' must be a mapping" in err
+
+
+def test_compose_ref_string_clean_error(tmp_path, capsys):
+    err = _compose_malformed(
+        tmp_path,
+        capsys,
+        {
+            "schema_version": "2",
+            "ros_distro": "jazzy",
+            "repositories": {
+                "alpha-mono": {
+                    "url": "https://x/alpha_mono",
+                    "ref": "main",
+                    "packages": {"alpha_pkg": {"tags": ["sensing"]}},
+                },
+            },
+        },
+    )
+    assert "repository 'alpha-mono' has 'ref' that is not a mapping" in err
+
+
+def test_compose_packages_list_clean_error(tmp_path, capsys):
+    err = _compose_malformed(
+        tmp_path,
+        capsys,
+        {
+            "schema_version": "2",
+            "ros_distro": "jazzy",
+            "repositories": {
+                "alpha-mono": {
+                    "url": "https://x/alpha_mono",
+                    "ref": {"kind": "branch", "value": "main"},
+                    "packages": ["alpha_pkg"],
+                },
+            },
+        },
+    )
+    assert "repository 'alpha-mono' has 'packages' that is not a mapping" in err
 
 
 def test_compose_explicit_output(distributions_dir, tmp_path):

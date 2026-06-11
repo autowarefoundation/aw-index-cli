@@ -85,15 +85,26 @@ def load_distribution(
     if schema_version != SUPPORTED_SCHEMA_VERSION:
         raise RegistryError(
             f"distribution for {ros_distro} has schema_version "
-            f"{schema_version!r}, which is not supported by this aw-index-cli; "
-            f"please upgrade (this version supports schema_version "
-            f"{SUPPORTED_SCHEMA_VERSION!r})"
+            f"{schema_version!r}, which is not supported by this aw-index-cli "
+            f"(supports: {SUPPORTED_SCHEMA_VERSION!r})"
         )
     if parsed.get("ros_distro") != ros_distro:
         raise RegistryError(
             f"ros_distro mismatch: expected {ros_distro!r}, "
             f"got {parsed.get('ros_distro')!r}"
         )
+    repositories = parsed.get("repositories")
+    if repositories is not None and not isinstance(repositories, dict):
+        raise RegistryError(
+            f"distribution for {ros_distro}: 'repositories' must be a mapping "
+            f"of repository key to spec, got {type(repositories).__name__}"
+        )
+    for key, spec in (repositories or {}).items():
+        if not isinstance(spec, dict):
+            raise RegistryError(
+                f"distribution for {ros_distro}: repository {key!r} must be "
+                f"a mapping, got {type(spec).__name__}"
+            )
     return parsed
 
 
