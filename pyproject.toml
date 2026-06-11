@@ -9,7 +9,7 @@ description = "Consumer CLI for the autoware-index registry"
 readme = "README.md"
 requires-python = ">=3.10"
 license = "Apache-2.0"
-authors = [{ name = "Autoware Foundation", email = "mfc@autoware.org" }]
+authors = [{ name = "Mete Fatih Cırıt", email = "mfc@autoware.org" }]
 dependencies = ["pyyaml>=6"]
 
 [project.optional-dependencies]
