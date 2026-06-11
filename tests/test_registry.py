@@ -25,7 +25,7 @@ def test_load_from_file(distributions_dir, sample_distribution):
     file_path = distributions_dir / "distributions" / "jazzy.yaml"
     result = load_distribution("jazzy", path=file_path)
     assert result["ros_distro"] == "jazzy"
-    assert "alpha_pkg" in result["packages"]
+    assert "alpha-mono" in result["repositories"]
 
 
 def test_missing_file_raises(tmp_path):
@@ -42,11 +42,41 @@ def test_ros_distro_mismatch_raises(tmp_path):
     dist_dir = tmp_path / "distributions"
     dist_dir.mkdir()
     (dist_dir / "jazzy.yaml").write_text(
-        yaml.safe_dump({"ros_distro": "humble", "packages": {}}),
+        yaml.safe_dump(
+            {"schema_version": "2", "ros_distro": "humble", "repositories": {}}
+        ),
         encoding="utf-8",
     )
     with pytest.raises(RegistryError, match="mismatch"):
         load_distribution("jazzy", path=tmp_path)
+
+
+def test_unsupported_schema_version_raises(tmp_path):
+    f = tmp_path / "jazzy.yaml"
+    f.write_text(
+        yaml.safe_dump(
+            {"schema_version": "1", "ros_distro": "jazzy", "packages": {}}
+        ),
+        encoding="utf-8",
+    )
+    with pytest.raises(RegistryError) as excinfo:
+        load_distribution("jazzy", path=f)
+    message = str(excinfo.value)
+    assert "'1'" in message
+    assert "not supported by this aw-index-cli; please upgrade" in message
+
+
+def test_missing_schema_version_raises(tmp_path):
+    f = tmp_path / "jazzy.yaml"
+    f.write_text(
+        yaml.safe_dump({"ros_distro": "jazzy", "repositories": {}}),
+        encoding="utf-8",
+    )
+    with pytest.raises(RegistryError) as excinfo:
+        load_distribution("jazzy", path=f)
+    message = str(excinfo.value)
+    assert "None" in message
+    assert "not supported by this aw-index-cli; please upgrade" in message
 
 
 def test_non_mapping_raises(tmp_path):
@@ -148,11 +178,15 @@ def test_select_among_two_distros(tmp_path):
     dist_dir = tmp_path / "distributions"
     dist_dir.mkdir()
     (dist_dir / "jazzy.yaml").write_text(
-        yaml.safe_dump({"ros_distro": "jazzy", "packages": {}}),
+        yaml.safe_dump(
+            {"schema_version": "2", "ros_distro": "jazzy", "repositories": {}}
+        ),
         encoding="utf-8",
     )
     (dist_dir / "humble.yaml").write_text(
-        yaml.safe_dump({"ros_distro": "humble", "packages": {}}),
+        yaml.safe_dump(
+            {"schema_version": "2", "ros_distro": "humble", "repositories": {}}
+        ),
         encoding="utf-8",
     )
     assert load_distribution("jazzy", path=tmp_path)["ros_distro"] == "jazzy"
@@ -163,7 +197,9 @@ def test_absent_distro_raises_not_found(tmp_path):
     dist_dir = tmp_path / "distributions"
     dist_dir.mkdir()
     (dist_dir / "jazzy.yaml").write_text(
-        yaml.safe_dump({"ros_distro": "jazzy", "packages": {}}),
+        yaml.safe_dump(
+            {"schema_version": "2", "ros_distro": "jazzy", "repositories": {}}
+        ),
         encoding="utf-8",
     )
     with pytest.raises(RegistryError, match="not found"):

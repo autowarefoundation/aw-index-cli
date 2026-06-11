@@ -1,4 +1,4 @@
-"""Select packages from a distribution and render a vcs ``.repos`` file."""
+"""Select repositories from a distribution and render a vcs ``.repos`` file."""
 
 from __future__ import annotations
 
@@ -9,69 +9,61 @@ class ComposeError(Exception):
     """Raised when a distribution cannot be composed into ``.repos`` entries."""
 
 
-def select_packages(
+def select_repositories(
     distribution: dict,
     tags: list[str] | None = None,
-) -> list[tuple[str, dict]]:
-    """Return ``(name, spec)`` pairs sorted by package name.
+) -> list[tuple[str, dict, list[str]]]:
+    """Return ``(key, spec, selected_packages)`` triples sorted by repo key.
 
-    When ``tags`` is non-empty, only packages whose own ``tags`` intersect the
-    requested tags are kept. Empty or ``None`` ``tags`` selects every package.
+    A package is selected when ``tags`` is empty/``None`` or intersects the
+    package's own ``tags``. A repository is selected when at least one of its
+    packages is selected; its ``selected_packages`` names are sorted.
     """
-    packages = distribution.get("packages") or {}
-    items = sorted(packages.items(), key=lambda kv: kv[0])
-    if not tags:
-        return items
-    wanted = set(tags)
+    repositories = distribution.get("repositories") or {}
+    wanted = set(tags or [])
     selected = []
-    for name, spec in items:
-        pkg_tags = set((spec or {}).get("tags") or [])
-        if pkg_tags & wanted:
-            selected.append((name, spec))
+    for key, spec in sorted(repositories.items()):
+        packages = (spec or {}).get("packages") or {}
+        if not wanted:
+            names = sorted(packages)
+        else:
+            names = sorted(
+                name
+                for name, pkg in packages.items()
+                if set((pkg or {}).get("tags") or []) & wanted
+            )
+        if names:
+            selected.append((key, spec, names))
     return selected
 
 
-def _checkout_path(url: str) -> str:
-    """Derive the clone path key from a repository URL's basename."""
-    return url.rstrip("/").rsplit("/", 1)[-1].removesuffix(".git")
+def to_repos_entries(repositories: list[tuple[str, dict, list[str]]]) -> dict:
+    """Map selected repositories to an ordered ``key -> entry`` dict.
 
-
-def to_repos_entries(packages: list[tuple[str, dict]]) -> dict:
-    """Map selected packages to an ordered ``path -> {type,url,version}`` dict.
-
-    The path is the repository URL's basename, so packages from one monorepo
-    collapse into a single clone. Raises :class:`ComposeError` when a package is
-    missing ``repository`` or ``ref.value``, or when two packages share a
-    repository but request different refs.
+    The entry key is the registry repository key, so packages from one
+    monorepo collapse into a single clone. Each entry carries vcstool's
+    ``type``/``url``/``version`` plus a ``packages`` manifest naming the
+    selected registered packages (vcstool ignores unknown keys). Raises
+    :class:`ComposeError` when a repository is missing ``url`` or
+    ``ref.value``.
     """
     entries: dict = {}
-    owners: dict = {}
-    for name, spec in packages:
+    for key, spec, package_names in repositories:
         spec = spec or {}
-        repository = spec.get("repository")
-        if not repository:
-            raise ComposeError(f"package {name!r} is missing 'repository'")
+        url = spec.get("url")
+        if not url:
+            raise ComposeError(f"repository {key!r} is missing 'url'")
         ref = spec.get("ref") or {}
         version = ref.get("value")
         if not version:
-            raise ComposeError(f"package {name!r} is missing 'ref.value'")
-        path = _checkout_path(repository)
-        if path in entries:
-            existing = entries[path]
-            if existing["url"] == repository and existing["version"] == version:
-                continue
-            raise ComposeError(
-                f"packages {owners[path]!r} and {name!r} share repository "
-                f"{repository} but request different refs: "
-                f"{existing['version']} vs {version}"
-            )
-        entries[path] = {
+            raise ComposeError(f"repository {key!r} is missing 'ref.value'")
+        entries[key] = {
             "type": "git",
-            "url": repository,
+            "url": url,
             "version": version,
+            "packages": list(package_names),
         }
-        owners[path] = name
-    return {path: entries[path] for path in sorted(entries)}
+    return entries
 
 
 def provenance_header(
@@ -82,8 +74,13 @@ def provenance_header(
     tags: list[str] | None = None,
     autoware: str | None = None,
     generated_at: str | None = None,
+    selection: list[tuple[str, list[str]]] | None = None,
 ) -> list[str]:
-    """Build the ``# …`` comment lines that precede the rendered ``.repos``."""
+    """Build the ``# …`` comment lines that precede the rendered ``.repos``.
+
+    ``selection`` is the ``(repo_key, selected_package_names)`` listing; when
+    given, every entry is named in the header with its selected packages.
+    """
     lines = [
         f"# aw-index-cli {tool_version}",
         f"# source: {source}",
@@ -94,10 +91,14 @@ def provenance_header(
         lines.append(
             f"# autoware: {autoware} "
             "(informational only — not a ref selector; the registry tracks "
-            "one ref per package)"
+            "one ref per repository)"
         )
     if generated_at is not None:
         lines.append(f"# generated_at: {generated_at}")
+    if selection:
+        lines.append("# selected packages by repository:")
+        for key, package_names in selection:
+            lines.append(f"#   {key}: {', '.join(package_names)}")
     lines.append(
         "# Generated file — re-run 'aw-index-cli compose …' to update; "
         "do not edit by hand."
@@ -112,8 +113,8 @@ def render_repos(
     header_lines: list[str],
 ) -> str:
     """Render the full ``.repos`` document (header comments + YAML body)."""
-    packages = select_packages(distribution, tags=tags)
-    entries = to_repos_entries(packages)
+    repositories = select_repositories(distribution, tags=tags)
+    entries = to_repos_entries(repositories)
     body = yaml.safe_dump(
         {"repositories": entries},
         sort_keys=False,

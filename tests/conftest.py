@@ -8,34 +8,70 @@ import pytest
 
 @pytest.fixture
 def sample_distribution() -> dict:
-    """A small but representative jazzy distribution dict.
+    """A small but representative schema_version "2" jazzy distribution dict.
 
-    Covers a branch ref, a tag ref, and a sha ref, plus varied tags so tag
-    filtering can be exercised. Packages are intentionally out of sorted order.
+    Covers a branch ref, a tag ref, and a sha ref; a monorepo with two
+    packages plus two single-package repositories; and varied tags so tag
+    filtering can be exercised. Repository keys are intentionally out of
+    sorted order.
     """
     return {
-        "schema_version": "1",
+        "schema_version": "2",
         "ros_distro": "jazzy",
-        "packages": {
-            "zeta_pkg": {
-                "repository": "https://github.com/example/zeta_pkg",
-                "description": "A sha-pinned package.",
-                "governance": "community",
-                "tags": ["perception"],
+        "repositories": {
+            "zeta-stack": {
+                "url": "https://github.com/example/zeta_stack",
                 "ref": {"kind": "sha", "value": "a" * 40},
-            },
-            "alpha_pkg": {
-                "repository": "https://github.com/example/alpha_pkg",
-                "description": "A branch-pinned package.",
-                "governance": "foundation",
-                "tags": ["sensing", "perception"],
-                "ref": {"kind": "branch", "value": "main"},
-            },
-            "mid_pkg": {
-                "repository": "https://github.com/example/mid_pkg",
                 "governance": "community",
-                "tags": ["planning"],
+                "maintainers": [
+                    {
+                        "name": "Zeta Dev",
+                        "email": "zeta@example.com",
+                        "github": "zetadev",
+                    }
+                ],
+                "packages": {
+                    "zeta_pkg": {
+                        "tags": ["perception"],
+                        "description": "A sha-pinned package.",
+                    },
+                },
+            },
+            "alpha-mono": {
+                "url": "https://github.com/example/alpha_mono",
+                "ref": {"kind": "branch", "value": "main"},
+                "governance": "foundation",
+                "maintainers": [
+                    {
+                        "name": "Alpha Dev",
+                        "email": "alpha@example.com",
+                        "github": "alphadev",
+                    }
+                ],
+                "packages": {
+                    "alpha_sensing": {
+                        "tags": ["sensing"],
+                        "description": "Sensing half of the monorepo.",
+                    },
+                    "alpha_perception": {
+                        "tags": ["perception"],
+                        "maintainers": [
+                            {
+                                "name": "Percy Dev",
+                                "email": "percy@example.com",
+                                "github": "percydev",
+                            }
+                        ],
+                    },
+                },
+            },
+            "mid-repo": {
+                "url": "https://github.com/example/mid_repo",
                 "ref": {"kind": "tag", "value": "v1.2.3"},
+                "governance": "community",
+                "packages": {
+                    "mid_pkg": {"tags": ["planning"]},
+                },
             },
         },
     }

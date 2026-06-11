@@ -11,6 +11,7 @@ import yaml
 DEFAULT_REPO = "autowarefoundation/autoware-index"
 DEFAULT_REF = "main"
 RAW_URL = "https://raw.githubusercontent.com/{repo}/{ref}/distributions/{ros_distro}.yaml"
+SUPPORTED_SCHEMA_VERSION = "2"
 
 
 class RegistryError(Exception):
@@ -40,6 +41,10 @@ def load_distribution(
     If ``path`` is given it is read locally (a file directly, or a directory in
     which ``distributions/<ros_distro>.yaml`` is expected). Otherwise the file is
     fetched from raw.githubusercontent.com for ``repo`` at ``ref``.
+
+    Only documents with ``schema_version`` equal to
+    :data:`SUPPORTED_SCHEMA_VERSION` are accepted; anything else raises
+    :class:`RegistryError` rather than ever producing silent empty output.
     """
     if path is not None:
         target = _distribution_file(Path(path), ros_distro)
@@ -75,6 +80,14 @@ def load_distribution(
     if not isinstance(parsed, dict):
         raise RegistryError(
             f"distribution for {ros_distro} is not a mapping"
+        )
+    schema_version = parsed.get("schema_version")
+    if schema_version != SUPPORTED_SCHEMA_VERSION:
+        raise RegistryError(
+            f"distribution for {ros_distro} has schema_version "
+            f"{schema_version!r}, which is not supported by this aw-index-cli; "
+            f"please upgrade (this version supports schema_version "
+            f"{SUPPORTED_SCHEMA_VERSION!r})"
         )
     if parsed.get("ros_distro") != ros_distro:
         raise RegistryError(

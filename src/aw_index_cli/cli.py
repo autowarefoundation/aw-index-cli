@@ -8,7 +8,12 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from . import __version__
-from .compose import ComposeError, provenance_header, render_repos, select_packages
+from .compose import (
+    ComposeError,
+    provenance_header,
+    render_repos,
+    select_repositories,
+)
 from .registry import RegistryError, describe_source, load_distribution
 from .workspace import find_repo_root, output_path
 
@@ -37,7 +42,7 @@ def _build_parser() -> argparse.ArgumentParser:
         "--autoware",
         help=(
             "informational only — recorded in the header; the registry tracks "
-            "one ref per package and does not resolve by Autoware version"
+            "one ref per repository and does not resolve by Autoware version"
         ),
     )
     compose.add_argument("--registry-path")
@@ -82,6 +87,12 @@ def _cmd_compose(args: argparse.Namespace) -> int:
             generated_at = None
         else:
             generated_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
+        selection = [
+            (key, names)
+            for key, _spec, names in select_repositories(
+                distribution, tags=args.tags
+            )
+        ]
         header_lines = provenance_header(
             tool_version=__version__,
             ros_distro=args.rosdistro,
@@ -89,6 +100,7 @@ def _cmd_compose(args: argparse.Namespace) -> int:
             tags=args.tags,
             autoware=args.autoware,
             generated_at=generated_at,
+            selection=selection,
         )
         text = render_repos(distribution, tags=args.tags, header_lines=header_lines)
     except (RegistryError, ComposeError) as exc:
@@ -108,8 +120,19 @@ def _cmd_compose(args: argparse.Namespace) -> int:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(text, encoding="utf-8")
 
-    count = len(select_packages(distribution, tags=args.tags))
-    print(f"Wrote {count} package(s) to {path}", file=sys.stderr)
+    repo_count = len(selection)
+    package_count = sum(len(names) for _, names in selection)
+    noun = "entry" if repo_count == 1 else "entries"
+    listing = ", ".join(
+        f"{key} ({', '.join(names)})" for key, names in selection
+    )
+    summary = (
+        f"Wrote {repo_count} repository {noun} covering "
+        f"{package_count} registered package(s) to {path}"
+    )
+    if listing:
+        summary += f": {listing}"
+    print(summary, file=sys.stderr)
     return 0
 
 

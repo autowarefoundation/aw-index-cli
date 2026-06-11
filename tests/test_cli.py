@@ -25,9 +25,12 @@ def test_compose_writes_repos_file(distributions_dir, tmp_path, capsys):
     out_file = repo_root / "repositories" / "autoware-index.repos"
     assert out_file.is_file()
     parsed = yaml.safe_load(out_file.read_text())
-    assert "alpha_pkg" in parsed["repositories"]
+    assert "alpha-mono" in parsed["repositories"]
     err = capsys.readouterr().err
-    assert "Wrote 3 package(s)" in err
+    assert "Wrote 3 repository entries covering 4 registered package(s)" in err
+    assert "alpha-mono (alpha_perception, alpha_sensing)" in err
+    assert "mid-repo (mid_pkg)" in err
+    assert "zeta-stack (zeta_pkg)" in err
     assert str(out_file) in err
 
 
@@ -67,7 +70,7 @@ def test_compose_stdout_writes_no_file(distributions_dir, tmp_path, capsys):
     assert rc == 0
     out = capsys.readouterr().out
     parsed = yaml.safe_load(out)
-    assert "alpha_pkg" in parsed["repositories"]
+    assert "alpha-mono" in parsed["repositories"]
     # Nothing written to disk.
     assert not (repo_root / "repositories" / "autoware-index.repos").exists()
 
@@ -87,7 +90,90 @@ def test_compose_tags_filter(distributions_dir, tmp_path, capsys):
     )
     assert rc == 0
     parsed = yaml.safe_load(capsys.readouterr().out)
-    assert list(parsed["repositories"]) == ["mid_pkg"]
+    assert list(parsed["repositories"]) == ["mid-repo"]
+    assert parsed["repositories"]["mid-repo"]["packages"] == ["mid_pkg"]
+
+
+def test_compose_monorepo_partial_selection(distributions_dir, capsys):
+    # Only one of the monorepo's two packages carries the tag: the entry is
+    # still emitted, and its manifest lists only the selected package.
+    rc = main(
+        [
+            "compose",
+            "--rosdistro",
+            "jazzy",
+            "--registry-path",
+            str(distributions_dir),
+            "--tags",
+            "sensing",
+            "--stdout",
+        ]
+    )
+    assert rc == 0
+    out = capsys.readouterr().out
+    parsed = yaml.safe_load(out)
+    assert list(parsed["repositories"]) == ["alpha-mono"]
+    assert parsed["repositories"]["alpha-mono"]["packages"] == ["alpha_sensing"]
+    assert "#   alpha-mono: alpha_sensing" in out
+
+
+def test_compose_single_repo_summary_is_singular(distributions_dir, tmp_path, capsys):
+    out_file = tmp_path / "one.repos"
+    rc = main(
+        [
+            "compose",
+            "--rosdistro",
+            "jazzy",
+            "--registry-path",
+            str(distributions_dir),
+            "--tags",
+            "planning",
+            "--output",
+            str(out_file),
+        ]
+    )
+    assert rc == 0
+    err = capsys.readouterr().err
+    assert "Wrote 1 repository entry covering 1 registered package(s)" in err
+    assert "mid-repo (mid_pkg)" in err
+
+
+def test_compose_rejects_schema_version_1(tmp_path, capsys):
+    dist_dir = tmp_path / "distributions"
+    dist_dir.mkdir()
+    (dist_dir / "jazzy.yaml").write_text(
+        yaml.safe_dump(
+            {
+                "schema_version": "1",
+                "ros_distro": "jazzy",
+                "packages": {
+                    "old_pkg": {
+                        "repository": "https://x/old_pkg",
+                        "tags": ["sensing"],
+                        "ref": {"kind": "branch", "value": "main"},
+                    },
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    rc = main(
+        [
+            "compose",
+            "--rosdistro",
+            "jazzy",
+            "--registry-path",
+            str(tmp_path),
+            "--stdout",
+        ]
+    )
+    assert rc == 1
+    captured = capsys.readouterr()
+    # No silent empty output: nothing on stdout, a clear error on stderr.
+    assert captured.out == ""
+    assert captured.err.startswith("error:")
+    assert "'1'" in captured.err
+    assert "not supported by this aw-index-cli; please upgrade" in captured.err
 
 
 def test_compose_explicit_output(distributions_dir, tmp_path):
@@ -197,7 +283,7 @@ def test_compose_stdout_no_file_no_wrote_line(distributions_dir, tmp_path, capsy
     assert "Wrote" not in captured.err
     assert captured.out.startswith("# aw-index-cli")
     parsed = yaml.safe_load(captured.out)
-    assert "alpha_pkg" in parsed["repositories"]
+    assert "alpha-mono" in parsed["repositories"]
     assert not (repo_root / "repositories" / "autoware-index.repos").exists()
 
 
@@ -221,6 +307,7 @@ def test_compose_stdout_header_lines_present(distributions_dir, capsys):
     assert "# rosdistro: jazzy" in out
     assert "# tags: sensing" in out
     assert "# autoware: 2025.02" in out
+    assert "# selected packages by repository:" in out
 
 
 def test_compose_no_timestamp_byte_identical(distributions_dir, capsys):
