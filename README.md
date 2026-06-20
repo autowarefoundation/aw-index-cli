@@ -70,10 +70,11 @@ repositories:
     type: git
     url: https://github.com/autowarefoundation/autoware_livox_tag_filter
     version: main
-    packages:
-    - autoware_livox_decoder
-    - autoware_livox_tag_filter
 ```
+
+Each entry is a pure vcstool entry — only `type`, `url`, and `version`. The
+selected registered package names live in the `# selected packages by
+repository:` header comment, not in the YAML body.
 
 ### How entries are composed
 
@@ -84,17 +85,19 @@ repositories:
   is empty or intersects its tags; a repository is selected when at least one
   of its packages is selected. However many of a repository's packages match,
   it yields exactly one `.repos` entry at the repository's single `ref`.
-- **`packages:` is a manifest, not a vcstool field.** Each entry lists the
-  *selected registered* packages, sorted by name; vcstool ignores unknown
-  keys, so `vcs import` works unchanged. With a tag filter, a monorepo entry
-  may list only a subset of the repository's registered packages.
+- **Entries are pure vcstool — `type`/`url`/`version` only.** The `.repos`
+  format defines no other per-entry fields, so the selected registered package
+  names are recorded in the `# selected packages by repository:` header comment
+  (sorted by name), not in the YAML body. With a tag filter, that comment may
+  name only a subset of a monorepo's registered packages. vcstool ignores
+  comments, so `vcs import` works unchanged.
 - **The clone may contain unregistered sibling packages** the index makes no
   claims about — registration is per package, but cloning is per repository.
-  For a build scoped to what you actually asked for, feed the manifest to
-  colcon:
+  For a build scoped to what you actually asked for, pass the names from the
+  header comment (or the registry) to colcon:
 
   ```bash
-  colcon build --packages-up-to autoware_livox_tag_filter  # names from 'packages:'
+  colcon build --packages-up-to autoware_livox_tag_filter  # names from the header comment
   ```
 
 - `version:` is the registry ref's `value` as-is; vcstool checks out tags,

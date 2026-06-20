@@ -116,12 +116,11 @@ def test_to_repos_entries_field_mapping(sample_distribution):
     entries = to_repos_entries(repositories)
     # Order preserved (sorted by repository key).
     assert list(entries) == ["alpha-mono", "mid-repo", "zeta-stack"]
-    # branch ref + monorepo packages manifest
+    # branch ref; pure vcstool entry (no packages field, even for a monorepo)
     assert entries["alpha-mono"] == {
         "type": "git",
         "url": "https://github.com/example/alpha_mono",
         "version": "main",
-        "packages": ["alpha_perception", "alpha_sensing"],
     }
     # tag ref
     assert entries["mid-repo"]["version"] == "v1.2.3"
@@ -147,7 +146,7 @@ def test_to_repos_entries_key_is_registry_repo_key_not_url_basename():
     assert entries["my-stack"]["url"] == "https://x/y/something_else.git"
 
 
-def test_to_repos_entries_packages_manifest_only_selected():
+def test_to_repos_entries_partial_selection_emits_pure_entry():
     entries = to_repos_entries(
         [
             (
@@ -158,8 +157,26 @@ def test_to_repos_entries_packages_manifest_only_selected():
         ]
     )
     # The entry is emitted even though only one of the repo's packages was
-    # selected, and the manifest names only that one.
-    assert entries["mono"]["packages"] == ["pkg_b"]
+    # selected, and it is a pure vcstool entry — no packages field.
+    assert set(entries["mono"]) == {"type", "url", "version"}
+
+
+def test_to_repos_entries_only_vcstool_fields():
+    """Regression guard: composed entries carry exactly type/url/version."""
+    repositories = select_repositories(
+        # build a minimal distribution inline to exercise every ref kind
+        {
+            "repositories": {
+                "r": {
+                    "url": "https://x/r",
+                    "ref": {"kind": "branch", "value": "main"},
+                    "packages": {"p": {"tags": ["t"]}},
+                },
+            }
+        }
+    )
+    entries = to_repos_entries(repositories)
+    assert all(set(e) == {"type", "url", "version"} for e in entries.values())
 
 
 def test_to_repos_entries_missing_url_raises():
@@ -292,7 +309,6 @@ def test_render_repos_valid_yaml_roundtrip(sample_distribution):
         "type": "git",
         "url": "https://github.com/example/alpha_mono",
         "version": "main",
-        "packages": ["alpha_perception", "alpha_sensing"],
     }
     assert list(parsed["repositories"]) == ["alpha-mono", "mid-repo", "zeta-stack"]
 
@@ -323,7 +339,8 @@ def test_render_repos_tag_filter(sample_distribution):
     text = render_repos(sample_distribution, tags=["planning"], header_lines=header)
     parsed = yaml.safe_load(text)
     assert list(parsed["repositories"]) == ["mid-repo"]
-    assert parsed["repositories"]["mid-repo"]["packages"] == ["mid_pkg"]
+    # pure vcstool entry — no packages field in the body
+    assert "packages" not in parsed["repositories"]["mid-repo"]
 
 
 def test_render_repos_monorepo_partial_selection(sample_distribution):
@@ -332,10 +349,10 @@ def test_render_repos_monorepo_partial_selection(sample_distribution):
     )
     text = render_repos(sample_distribution, tags=["sensing"], header_lines=header)
     parsed = yaml.safe_load(text)
-    # The monorepo entry is still emitted, with only the selected package in
-    # its manifest.
+    # The monorepo entry is still emitted for a partial selection, as a pure
+    # vcstool entry (no packages field).
     assert list(parsed["repositories"]) == ["alpha-mono"]
-    assert parsed["repositories"]["alpha-mono"]["packages"] == ["alpha_sensing"]
+    assert "packages" not in parsed["repositories"]["alpha-mono"]
 
 
 def test_render_repos_header_precedes_body_one_trailing_newline(sample_distribution):

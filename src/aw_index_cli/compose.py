@@ -47,14 +47,16 @@ def to_repos_entries(repositories: list[tuple[str, dict, list[str]]]) -> dict:
     """Map selected repositories to an ordered ``key -> entry`` dict.
 
     The entry key is the registry repository key, so packages from one
-    monorepo collapse into a single clone. Each entry carries vcstool's
-    ``type``/``url``/``version`` plus a ``packages`` manifest naming the
-    selected registered packages (vcstool ignores unknown keys). Raises
+    monorepo collapse into a single clone. Each entry carries exactly
+    vcstool's ``type``/``url``/``version`` and nothing else — the format
+    defines no other per-entry fields. The selected registered package names
+    are recorded in the provenance header comments (see
+    :func:`provenance_header`), not in the YAML body. Raises
     :class:`ComposeError` when a repository is missing ``url`` or
     ``ref.value``, or when its ``ref`` is not a mapping.
     """
     entries: dict = {}
-    for key, spec, package_names in repositories:
+    for key, spec, _names in repositories:
         spec = spec or {}
         url = spec.get("url")
         if not url:
@@ -72,7 +74,6 @@ def to_repos_entries(repositories: list[tuple[str, dict, list[str]]]) -> dict:
             "type": "git",
             "url": url,
             "version": version,
-            "packages": list(package_names),
         }
     return entries
 
