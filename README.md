@@ -36,31 +36,54 @@ python3 -m pip install -e ".[dev]"
 
 Render a `.repos` file from a distribution.
 
+Select what you need — by package name or by repository entry. The
+distribution is fetched from GitHub by default, so no registry checkout is
+required.
+
 ```bash
-# Compose the whole jazzy distribution from a local registry checkout,
-# writing repositories/autoware-index.repos under the discovered repo root.
+# Recommended: compose just the packages you want.
 aw-index-cli compose --rosdistro jazzy \
-  --registry-path /path/to/autoware-index
+  --packages autoware_livox_tag_filter
+
+# …or pull in whole repository entries by their registry key.
+aw-index-cli compose --rosdistro jazzy \
+  --repository autoware_livox_tag_filter
+
+# Narrow by tag (filters can be combined; they are ANDed).
+aw-index-cli compose --rosdistro jazzy --tags sensing perception
 
 # Print to stdout instead of writing a file.
 aw-index-cli compose --rosdistro jazzy \
-  --registry-path /path/to/autoware-index --stdout
+  --packages autoware_livox_tag_filter --stdout
+```
 
-# Filter by tags and fetch the distribution from GitHub (no checkout needed).
-aw-index-cli compose --rosdistro jazzy --tags sensing perception
+> Omitting all of `--packages`, `--repository`, and `--tags` composes the
+> **entire** distribution into one `.repos`. That is supported but rarely what
+> you want — prefer naming the packages or repositories you actually consume.
 
-# Fetch from a fork or a specific registry branch/tag/sha.
+Less common sources — a local registry checkout, or a fork / specific git ref:
+
+```bash
+# Read from a local registry checkout instead of GitHub.
 aw-index-cli compose --rosdistro jazzy \
+  --packages autoware_livox_tag_filter \
+  --registry-path /path/to/autoware-index
+
+# Fetch the distribution from a fork at a specific branch/tag/sha.
+aw-index-cli compose --rosdistro jazzy \
+  --packages autoware_livox_tag_filter \
   --registry-repo me/autoware-index-fork --registry-ref dev
 ```
 
-Example output:
+Example output for `compose --rosdistro jazzy --repository livox-tools`
+(a monorepo entry hosting two registered packages):
 
 ```yaml
 # aw-index-cli 0.1.0
-# source: local path /path/to/autoware-index
+# source: autowarefoundation/autoware-index@main
 # rosdistro: jazzy
 # tags: all
+# repository: livox-tools
 # generated_at: 2026-06-11T12:00:00+00:00
 # selected packages by repository:
 #   livox-tools: autoware_livox_decoder, autoware_livox_tag_filter
@@ -81,9 +104,15 @@ repository:` header comment, not in the YAML body.
 - **Entry keys are registry repository keys** (the keys under `repositories:`
   in the distribution YAML), not URL basenames. The key is also the checkout
   directory `vcs import` clones into.
-- **A monorepo collapses to one clone.** A package is selected when `--tags`
-  is empty or intersects its tags; a repository is selected when at least one
-  of its packages is selected. However many of a repository's packages match,
+- **Selection is by package, repository, or tag — ANDed.** A package survives
+  when it passes every filter you give: `--packages` (name in the list),
+  `--repository` (its entry's key in the list), and `--tags` (its tags
+  intersect the list). Omit a filter to not constrain on it; omit all three to
+  take the whole distribution. A `--packages` name or `--repository` key that
+  does not exist anywhere in the distribution is a hard error, never a silent
+  empty result.
+- **A monorepo collapses to one clone.** A repository is selected when at least
+  one of its packages survives the filters. However many of its packages match,
   it yields exactly one `.repos` entry at the repository's single `ref`.
 - **Entries are pure vcstool — `type`/`url`/`version` only.** The `.repos`
   format defines no other per-entry fields, so the selected registered package
@@ -114,7 +143,11 @@ silently empty output for a document it does not understand.
 ### Key options
 
 - `--rosdistro` (required): ROS distribution, e.g. `jazzy`.
+- `--packages ...`: keep only these registered package names. Unknown names error.
+- `--repository ...`: keep only these repository entries, by registry key.
+  Unknown keys error.
 - `--tags ...`: keep only packages whose tags intersect these; omit for all.
+  Combined with `--packages`/`--repository`, the filters are ANDed.
 - `--autoware`: informational only — recorded in the header, not a ref selector.
 - `--registry-path`: local file or registry directory; omit to fetch from GitHub.
 - `--registry-repo` / `--registry-ref`: GitHub source — the repository

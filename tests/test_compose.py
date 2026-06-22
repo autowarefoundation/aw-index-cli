@@ -111,6 +111,70 @@ def test_select_repo_without_packages_is_excluded():
     assert select_repositories(distribution, tags=["sensing"]) == []
 
 
+def test_select_by_packages(sample_distribution):
+    # A package filter keeps only the named packages, across whichever repos
+    # host them; the monorepo entry lists only the matched package.
+    selection = select_repositories(
+        sample_distribution, packages=["alpha_sensing", "mid_pkg"]
+    )
+    assert [(key, names) for key, _, names in selection] == [
+        ("alpha-mono", ["alpha_sensing"]),
+        ("mid-repo", ["mid_pkg"]),
+    ]
+
+
+def test_select_by_repository(sample_distribution):
+    # A repository filter keeps whole entries by registry key, with all their
+    # packages.
+    selection = select_repositories(sample_distribution, repository=["alpha-mono"])
+    assert [(key, names) for key, _, names in selection] == [
+        ("alpha-mono", ["alpha_perception", "alpha_sensing"]),
+    ]
+
+
+def test_select_filters_are_anded(sample_distribution):
+    # packages ∩ tags within the chosen repository.
+    selection = select_repositories(
+        sample_distribution,
+        repository=["alpha-mono"],
+        packages=["alpha_perception", "alpha_sensing"],
+        tags=["sensing"],
+    )
+    assert [(key, names) for key, _, names in selection] == [
+        ("alpha-mono", ["alpha_sensing"]),
+    ]
+
+
+def test_select_unknown_package_raises(sample_distribution):
+    with pytest.raises(ComposeError, match="no such package in the distribution: 'nope'"):
+        select_repositories(sample_distribution, packages=["nope"])
+
+
+def test_select_unknown_repository_raises(sample_distribution):
+    with pytest.raises(
+        ComposeError, match="no such repository entry in the distribution: 'nope'"
+    ):
+        select_repositories(sample_distribution, repository=["nope"])
+
+
+def test_select_unknown_names_pluralized(sample_distribution):
+    with pytest.raises(ComposeError, match="no such packages in the distribution:"):
+        select_repositories(sample_distribution, packages=["nope", "alsonope"])
+
+
+def test_select_existing_package_excluded_by_other_filter_is_not_unknown(
+    sample_distribution,
+):
+    # alpha_sensing exists, but the repository filter excludes its repo: that is
+    # an empty result, not an "unknown package" error.
+    assert (
+        select_repositories(
+            sample_distribution, repository=["mid-repo"], packages=["alpha_sensing"]
+        )
+        == []
+    )
+
+
 def test_to_repos_entries_field_mapping(sample_distribution):
     repositories = select_repositories(sample_distribution)
     entries = to_repos_entries(repositories)
@@ -297,6 +361,24 @@ def test_provenance_header_selection_omitted_when_empty():
             selection=selection,
         )
         assert not any("selected packages" in line for line in lines)
+
+
+def test_provenance_header_records_packages_and_repository_filters():
+    lines = provenance_header(
+        tool_version="0.1.0",
+        ros_distro="jazzy",
+        source="src",
+        packages=["alpha_sensing", "mid_pkg"],
+        repository=["alpha-mono"],
+    )
+    assert "# packages: alpha_sensing, mid_pkg" in lines
+    assert "# repository: alpha-mono" in lines
+
+
+def test_provenance_header_filter_lines_omitted_when_absent():
+    lines = provenance_header(tool_version="0.1.0", ros_distro="jazzy", source="src")
+    assert not any(line.startswith("# packages:") for line in lines)
+    assert not any(line.startswith("# repository:") for line in lines)
 
 
 def test_render_repos_valid_yaml_roundtrip(sample_distribution):

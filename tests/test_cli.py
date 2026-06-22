@@ -118,6 +118,86 @@ def test_compose_monorepo_partial_selection(distributions_dir, capsys):
     assert "#   alpha-mono: alpha_sensing" in out
 
 
+def test_compose_packages_selection(distributions_dir, capsys):
+    rc = main(
+        [
+            "compose",
+            "--rosdistro",
+            "jazzy",
+            "--registry-path",
+            str(distributions_dir),
+            "--packages",
+            "alpha_sensing",
+            "mid_pkg",
+            "--stdout",
+        ]
+    )
+    assert rc == 0
+    out = capsys.readouterr().out
+    parsed = yaml.safe_load(out)
+    assert list(parsed["repositories"]) == ["alpha-mono", "mid-repo"]
+    assert "# packages: alpha_sensing, mid_pkg" in out
+    assert "#   alpha-mono: alpha_sensing" in out
+
+
+def test_compose_repository_selection(distributions_dir, capsys):
+    rc = main(
+        [
+            "compose",
+            "--rosdistro",
+            "jazzy",
+            "--registry-path",
+            str(distributions_dir),
+            "--repository",
+            "mid-repo",
+            "--stdout",
+        ]
+    )
+    assert rc == 0
+    out = capsys.readouterr().out
+    parsed = yaml.safe_load(out)
+    assert list(parsed["repositories"]) == ["mid-repo"]
+    assert "# repository: mid-repo" in out
+
+
+def test_compose_unknown_package_clean_error(distributions_dir, capsys):
+    rc = main(
+        [
+            "compose",
+            "--rosdistro",
+            "jazzy",
+            "--registry-path",
+            str(distributions_dir),
+            "--packages",
+            "nope",
+            "--stdout",
+        ]
+    )
+    assert rc == 1
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert "no such package in the distribution: 'nope'" in captured.err
+
+
+def test_compose_unknown_repository_clean_error(distributions_dir, capsys):
+    rc = main(
+        [
+            "compose",
+            "--rosdistro",
+            "jazzy",
+            "--registry-path",
+            str(distributions_dir),
+            "--repository",
+            "nope",
+            "--stdout",
+        ]
+    )
+    assert rc == 1
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert "no such repository entry in the distribution: 'nope'" in captured.err
+
+
 def test_compose_single_repo_summary_is_singular(distributions_dir, tmp_path, capsys):
     out_file = tmp_path / "one.repos"
     rc = main(

@@ -37,6 +37,16 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Render a .repos file from a distribution.",
     )
     compose.add_argument("--rosdistro", required=True)
+    compose.add_argument(
+        "--packages",
+        nargs="*",
+        help="select only these registered package names (ANDed with other filters)",
+    )
+    compose.add_argument(
+        "--repository",
+        nargs="*",
+        help="select only these repository entries by registry key",
+    )
     compose.add_argument("--tags", nargs="*")
     compose.add_argument(
         "--autoware",
@@ -90,7 +100,10 @@ def _cmd_compose(args: argparse.Namespace) -> int:
         selection = [
             (key, names)
             for key, _spec, names in select_repositories(
-                distribution, tags=args.tags
+                distribution,
+                tags=args.tags,
+                packages=args.packages,
+                repository=args.repository,
             )
         ]
         header_lines = provenance_header(
@@ -98,11 +111,19 @@ def _cmd_compose(args: argparse.Namespace) -> int:
             ros_distro=args.rosdistro,
             source=source,
             tags=args.tags,
+            packages=args.packages,
+            repository=args.repository,
             autoware=args.autoware,
             generated_at=generated_at,
             selection=selection,
         )
-        text = render_repos(distribution, tags=args.tags, header_lines=header_lines)
+        text = render_repos(
+            distribution,
+            tags=args.tags,
+            packages=args.packages,
+            repository=args.repository,
+            header_lines=header_lines,
+        )
     except (RegistryError, ComposeError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
