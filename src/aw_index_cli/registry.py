@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import urllib.error
 from pathlib import Path
+from urllib.parse import quote
 from urllib.request import urlopen
 
 import yaml
@@ -16,6 +17,31 @@ SUPPORTED_SCHEMA_VERSION = "2"
 
 class RegistryError(Exception):
     """Raised when a distribution cannot be located, fetched, or parsed."""
+
+
+def _fetch_text(url: str, *, timeout: float, not_found_ok: bool = False) -> str | None:
+    """Fetch ``url`` and decode UTF-8, mapping failures to :class:`RegistryError`.
+
+    When ``not_found_ok`` is true an HTTP 404 returns ``None`` instead of raising
+    — used to treat a missing per-package history file as "no records yet".
+    """
+    try:
+        with urlopen(url, timeout=timeout) as response:
+            return response.read().decode("utf-8")
+    except urllib.error.HTTPError as exc:
+        if not_found_ok and exc.code == 404:
+            return None
+        raise RegistryError(
+            f"could not fetch {url}: HTTP {exc.code} {exc.reason}"
+        ) from exc
+    except TimeoutError as exc:
+        raise RegistryError(f"timed out fetching {url} after {timeout}s") from exc
+    except urllib.error.URLError as exc:
+        raise RegistryError(f"could not fetch {url}: {exc.reason}") from exc
+    except UnicodeDecodeError as exc:
+        raise RegistryError(
+            f"response from {url} was not valid UTF-8: {exc}"
+        ) from exc
 
 
 def _distribution_file(path: Path, ros_distro: str) -> Path:
@@ -55,22 +81,8 @@ def load_distribution(
         except (OSError, UnicodeDecodeError) as exc:
             raise RegistryError(f"could not read {target}: {exc}") from exc
     else:
-        url = RAW_URL.format(repo=repo, ref=ref, ros_distro=ros_distro)
-        try:
-            with urlopen(url, timeout=timeout) as response:
-                raw = response.read().decode("utf-8")
-        except urllib.error.HTTPError as exc:
-            raise RegistryError(
-                f"could not fetch {url}: HTTP {exc.code} {exc.reason}"
-            ) from exc
-        except TimeoutError as exc:
-            raise RegistryError(f"timed out fetching {url} after {timeout}s") from exc
-        except urllib.error.URLError as exc:
-            raise RegistryError(f"could not fetch {url}: {exc.reason}") from exc
-        except UnicodeDecodeError as exc:
-            raise RegistryError(
-                f"response from {url} was not valid UTF-8: {exc}"
-            ) from exc
+        url = RAW_URL.format(repo=repo, ref=ref, ros_distro=quote(ros_distro, safe=""))
+        raw = _fetch_text(url, timeout=timeout)
 
     try:
         parsed = yaml.safe_load(raw)

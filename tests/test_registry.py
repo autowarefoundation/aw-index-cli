@@ -172,6 +172,21 @@ def test_fetch_success_monkeypatched(monkeypatch, sample_distribution):
     )
 
 
+def test_fetch_url_encodes_rosdistro(monkeypatch, sample_distribution):
+    captured = {}
+
+    def fake_urlopen(url, timeout=None):
+        captured["url"] = url
+        return _FakeResponse(yaml.safe_dump(sample_distribution).encode("utf-8"))
+
+    monkeypatch.setattr(registry, "urlopen", fake_urlopen)
+    # A distro with URL-special characters must be percent-encoded into a single
+    # path segment (it later fails the ros_distro match, but the URL is built first).
+    with pytest.raises(RegistryError):
+        load_distribution("ros?inject")
+    assert "/distributions/ros%3Finject.yaml" in captured["url"]
+
+
 def test_fetch_custom_repo_ref(monkeypatch, sample_distribution):
     payload = yaml.safe_dump(sample_distribution).encode("utf-8")
     captured = {}

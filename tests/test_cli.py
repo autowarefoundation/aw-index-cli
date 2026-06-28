@@ -2,9 +2,17 @@
 
 from __future__ import annotations
 
+import json
+
 import yaml
 
+from aw_index_cli import cli, registry
 from aw_index_cli.cli import main
+
+_PASS = (
+    '{{"status":"pass","autoware_version":"1.8.0",'
+    '"at":"2026-06-27T00:00:00Z","resolved_sha":"{sha}"}}\n'
+)
 
 
 def test_compose_writes_repos_file(distributions_dir, tmp_path, capsys):
@@ -380,14 +388,6 @@ def test_compose_missing_file_returns_1(tmp_path, capsys):
     assert err.startswith("error:")
 
 
-def test_stub_commands_return_2(capsys):
-    for cmd in ("check",):
-        rc = main([cmd])
-        assert rc == 2
-        err = capsys.readouterr().err
-        assert f"aw-index-cli {cmd} is not implemented yet" in err
-
-
 def test_no_subcommand_returns_2(capsys):
     rc = main([])
     assert rc == 2
@@ -514,3 +514,263 @@ def test_compose_default_includes_generated_at(distributions_dir, capsys):
     assert rc == 0
     out = capsys.readouterr().out
     assert "# generated_at:" in out
+
+
+# --- list ----------------------------------------------------------------------
+def test_list_command_table(distributions_dir, monkeypatch, capsys, history_urlopen):
+    records = {"alpha_sensing": _PASS.format(sha="s")}
+    monkeypatch.setattr(registry, "urlopen", history_urlopen(records))
+    rc = main(["list", "--rosdistro", "jazzy", "--registry-path", str(distributions_dir)])
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "PACKAGE" in out
+    assert "alpha_sensing" in out and "pass" in out
+
+
+def test_list_strict_exits_1_on_unvalidated(
+    distributions_dir, monkeypatch, capsys, history_urlopen
+):
+    monkeypatch.setattr(registry, "urlopen", history_urlopen({}))  # everything 404
+    rc = main(
+        [
+            "list",
+            "--rosdistro",
+            "jazzy",
+            "--registry-path",
+            str(distributions_dir),
+            "--strict",
+        ]
+    )
+    assert rc == 1
+
+
+def test_list_json(distributions_dir, monkeypatch, capsys, history_urlopen):
+    monkeypatch.setattr(registry, "urlopen", history_urlopen({}))
+    rc = main(
+        [
+            "list",
+            "--rosdistro",
+            "jazzy",
+            "--registry-path",
+            str(distributions_dir),
+            "--repository",
+            "mid-repo",
+            "--format",
+            "json",
+        ]
+    )
+    assert rc == 0
+    data = json.loads(capsys.readouterr().out)
+    assert data["rosdistro"] == "jazzy"
+    assert data["rows"][0]["package"] == "mid_pkg"
+
+
+# --- check ---------------------------------------------------------------------
+def _all_pass_records(sha="s"):
+    return {
+        p: _PASS.format(sha=sha)
+        for p in ("alpha_sensing", "alpha_perception", "mid_pkg", "zeta_pkg")
+    }
+
+
+def test_check_with_repos_file_passes(
+    tmp_path, distributions_dir, sample_repos_text, monkeypatch, capsys, history_urlopen
+):
+    repos_file = tmp_path / "autoware-index.repos"
+    repos_file.write_text(sample_repos_text)
+    monkeypatch.setattr(registry, "urlopen", history_urlopen(_all_pass_records()))
+    monkeypatch.setattr(cli, "remote_sha", lambda url, ref: "s")  # no branch drift
+    rc = main(
+        [
+            "check",
+            "--repos",
+            str(repos_file),
+            "--registry-path",
+            str(distributions_dir),
+        ]
+    )
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "alpha_sensing" in out and "pass" in out
+
+
+def test_check_autodiscovers_one_level_deep(
+    tmp_path, distributions_dir, sample_repos_text, monkeypatch, capsys, history_urlopen
+):
+    (tmp_path / "repositories").mkdir()
+    (tmp_path / "repositories" / "autoware-index.repos").write_text(sample_repos_text)
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(registry, "urlopen", history_urlopen({}))  # unvalidated (soft)
+    monkeypatch.setattr(cli, "remote_sha", lambda url, ref: None)
+    rc = main(["check", "--registry-path", str(distributions_dir)])
+    assert rc == 0  # unvalidated is not a problem without --strict
+
+
+def test_check_ref_drift_exits_1(
+    tmp_path, distributions_dir, sample_repos_text, monkeypatch, capsys, history_urlopen
+):
+    drifted = sample_repos_text.replace("version: v1.2.3", "version: v1.0.0")
+    repos_file = tmp_path / "autoware-index.repos"
+    repos_file.write_text(drifted)
+    monkeypatch.setattr(registry, "urlopen", history_urlopen(_all_pass_records()))
+    monkeypatch.setattr(cli, "remote_sha", lambda url, ref: "s")
+    rc = main(
+        ["check", "--repos", str(repos_file), "--registry-path", str(distributions_dir)]
+    )
+    assert rc == 1
+    assert "registry moved" in capsys.readouterr().out
+
+
+def test_check_rosdistro_from_header(
+    tmp_path, distributions_dir, sample_repos_text, monkeypatch, capsys, history_urlopen
+):
+    repos_file = tmp_path / "autoware-index.repos"
+    repos_file.write_text(sample_repos_text)
+    monkeypatch.setattr(registry, "urlopen", history_urlopen(_all_pass_records()))
+    monkeypatch.setattr(cli, "remote_sha", lambda url, ref: "s")
+    # no --rosdistro: must be read from the .repos header
+    rc = main(
+        ["check", "--repos", str(repos_file), "--registry-path", str(distributions_dir)]
+    )
+    assert rc == 0
+
+
+def test_check_missing_repos_file_exits_2(tmp_path, distributions_dir, capsys):
+    rc = main(
+        [
+            "check",
+            "--repos",
+            str(tmp_path / "nope.repos"),
+            "--registry-path",
+            str(distributions_dir),
+        ]
+    )
+    assert rc == 2
+    assert "error:" in capsys.readouterr().err
+
+
+def test_check_no_autodiscovery_exits_2(tmp_path, monkeypatch, capsys):
+    empty = tmp_path / "empty"
+    empty.mkdir()
+    monkeypatch.chdir(empty)
+    rc = main(["check"])
+    assert rc == 2
+    assert "no autoware-index.repos" in capsys.readouterr().err
+
+
+def test_check_json(
+    tmp_path, distributions_dir, sample_repos_text, monkeypatch, capsys, history_urlopen
+):
+    repos_file = tmp_path / "autoware-index.repos"
+    repos_file.write_text(sample_repos_text)
+    monkeypatch.setattr(registry, "urlopen", history_urlopen(_all_pass_records()))
+    monkeypatch.setattr(cli, "remote_sha", lambda url, ref: "s")
+    rc = main(
+        [
+            "check",
+            "--repos",
+            str(repos_file),
+            "--registry-path",
+            str(distributions_dir),
+            "--format",
+            "json",
+        ]
+    )
+    assert rc == 0
+    data = json.loads(capsys.readouterr().out)
+    assert data["rosdistro"] == "jazzy"
+    assert data["problems"] == 0
+    assert {r["package"] for r in data["rows"]} >= {"alpha_sensing", "mid_pkg"}
+
+
+def test_check_unvalidated_soft_without_strict_hard_with_strict(
+    tmp_path, distributions_dir, sample_repos_text, monkeypatch, capsys, history_urlopen
+):
+    repos_file = tmp_path / "autoware-index.repos"
+    repos_file.write_text(sample_repos_text)
+    monkeypatch.setattr(registry, "urlopen", history_urlopen({}))  # all 404 -> unvalidated
+    monkeypatch.setattr(cli, "remote_sha", lambda url, ref: None)
+    base = ["check", "--repos", str(repos_file), "--registry-path", str(distributions_dir)]
+    # unvalidated is a soft problem: clean (exit 0) without --strict ...
+    assert main(base) == 0
+    capsys.readouterr()
+    # ... and a failure (exit 1) with --strict.
+    assert main(base + ["--strict"]) == 1
+
+
+def test_check_branch_drift_warns_without_strict(
+    tmp_path, distributions_dir, sample_repos_text, monkeypatch, capsys, history_urlopen
+):
+    repos_file = tmp_path / "autoware-index.repos"
+    repos_file.write_text(sample_repos_text)
+    # records were swept at "OLD"; the live branch HEAD is "NEW" -> advanced
+    monkeypatch.setattr(registry, "urlopen", history_urlopen(_all_pass_records(sha="OLD")))
+    monkeypatch.setattr(cli, "remote_sha", lambda url, ref: "NEW")
+    rc = main(
+        ["check", "--repos", str(repos_file), "--registry-path", str(distributions_dir)]
+    )
+    out = capsys.readouterr().out
+    assert rc == 0  # branch advance is a warning, not a default failure
+    assert "branch advanced" in out
+
+
+def test_check_branch_drift_fails_with_strict(
+    tmp_path, distributions_dir, sample_repos_text, monkeypatch, capsys, history_urlopen
+):
+    repos_file = tmp_path / "autoware-index.repos"
+    repos_file.write_text(sample_repos_text)
+    monkeypatch.setattr(registry, "urlopen", history_urlopen(_all_pass_records(sha="OLD")))
+    monkeypatch.setattr(cli, "remote_sha", lambda url, ref: "NEW")
+    rc = main(
+        [
+            "check",
+            "--repos",
+            str(repos_file),
+            "--registry-path",
+            str(distributions_dir),
+            "--strict",
+        ]
+    )
+    assert rc == 1
+
+
+def test_check_multiple_autodiscovered_exits_2(tmp_path, sample_repos_text, monkeypatch, capsys):
+    for sub in ("a", "b"):
+        (tmp_path / sub).mkdir()
+        (tmp_path / sub / "autoware-index.repos").write_text(sample_repos_text)
+    monkeypatch.chdir(tmp_path)
+    rc = main(["check"])
+    assert rc == 2
+    assert "multiple autoware-index.repos" in capsys.readouterr().err
+
+
+def test_check_missing_rosdistro_exits_2(tmp_path, distributions_dir, capsys):
+    repos_file = tmp_path / "autoware-index.repos"
+    repos_file.write_text(
+        "repositories:\n  r:\n    type: git\n    url: https://x/r\n    version: main\n"
+    )
+    rc = main(
+        ["check", "--repos", str(repos_file), "--registry-path", str(distributions_dir)]
+    )
+    assert rc == 2
+    assert "could not determine the rosdistro" in capsys.readouterr().err
+
+
+def test_check_read_error_exits_2(tmp_path, distributions_dir, monkeypatch, capsys):
+    import pathlib
+
+    repos_file = tmp_path / "autoware-index.repos"
+    repos_file.write_text("repositories: {}\n")
+    real_read_text = pathlib.Path.read_text
+
+    def boom(self, *args, **kwargs):
+        if self == repos_file:
+            raise OSError("permission denied")
+        return real_read_text(self, *args, **kwargs)
+
+    monkeypatch.setattr(pathlib.Path, "read_text", boom)
+    rc = main(
+        ["check", "--repos", str(repos_file), "--registry-path", str(distributions_dir)]
+    )
+    assert rc == 2
+    assert "could not read" in capsys.readouterr().err

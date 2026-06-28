@@ -161,8 +161,9 @@ silently empty output for a document it does not understand.
 
 ## Commands
 
-- `compose` — render a `.repos` file from a distribution (implemented).
-- `check` — report registry/validation drift for a workspace *(planned)*.
+- `compose` — render a `.repos` file from a distribution.
+- `check` — gate a composed `.repos` against the registry and sweep history.
+- `list` — list registry packages with their latest validation status.
 
 The CLI owns **registry-domain** operations and leaves workspace/git work to
 [vcstool][vcstool]. There is deliberately no `import` command — pipe `compose`
@@ -172,6 +173,52 @@ straight into vcs:
 aw-index-cli compose --rosdistro jazzy --packages autoware_livox_tag_filter --stdout \
   | vcs import src
 ```
+
+## `check`
+
+Verify that a composed `.repos` is still in good standing: every repository at the
+registry's current ref, and each registered package passing its latest sweep. Reads
+the distribution (current refs) and the `data` branch's per-package validation
+history. Intended as a **CI gate** after `vcs import`.
+
+```bash
+# Auto-discovers ./autoware-index.repos or ./*/autoware-index.repos; rosdistro is
+# read from the file's header. Exit code is the gate.
+aw-index-cli check
+
+# Or point at a specific file.
+aw-index-cli check --repos repositories/autoware-index.repos --rosdistro jazzy
+```
+
+Per repository it reports: **ref drift** (your pinned ref ≠ the registry's current
+ref), **removed** (no longer registered), each package's latest **validation status**
+(`pass`/`fail`/`—` unvalidated) and the Autoware version it was tested against, and —
+for `branch` refs — whether the branch advanced past the last swept commit.
+
+- **Exit `0`** — all checked packages pass, no drift.
+- **Exit `1`** — any failing validation, ref drift, or removed package (with
+  `--strict`, also unvalidated packages or a branch that advanced since the sweep).
+- **Exit `2`** — could not run (bad/missing `.repos`, registry load error).
+
+Key options: `--repos` (default: auto-discover), `--rosdistro` (default: from the
+header), `--registry-path/--registry-repo/--registry-ref` (as `compose`),
+`--data-ref` (default `data`), `--strict`, `--format {table,json}`. `check`'s
+branch-drift check shells out to `git ls-remote`; if `git` is absent that check is
+skipped (best-effort), everything else still runs.
+
+## `list`
+
+Enumerate the packages registered for a distro, annotated with their latest sweep
+status — discovery plus a health readout, without composing anything.
+
+```bash
+aw-index-cli list --rosdistro jazzy
+aw-index-cli list --rosdistro jazzy --tags sensing --format json
+```
+
+Accepts the same selection filters as `compose` (`--packages`, `--repository`,
+`--tags`). Exit `0` normally; with `--strict`, exit `1` if any selected package is
+failing or unvalidated; exit `2` on a registry load error.
 
 ## License
 
