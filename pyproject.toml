@@ -10,7 +10,25 @@ readme = "README.md"
 requires-python = ">=3.10"
 license = "Apache-2.0"
 authors = [{ name = "Mete Fatih Cırıt", email = "mfc@autoware.org" }]
+keywords = ["autoware", "ros", "ros2", "vcstool", "registry"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Build Tools",
+]
 dependencies = ["pyyaml>=6"]
+
+[project.urls]
+Homepage = "https://github.com/autowarefoundation/aw-index-cli"
+Repository = "https://github.com/autowarefoundation/aw-index-cli"
+Issues = "https://github.com/autowarefoundation/aw-index-cli/issues"
 
 [project.optional-dependencies]
 dev = ["pytest>=7"]
