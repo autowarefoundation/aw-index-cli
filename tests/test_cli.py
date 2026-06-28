@@ -381,7 +381,7 @@ def test_compose_missing_file_returns_1(tmp_path, capsys):
 
 
 def test_stub_commands_return_2(capsys):
-    for cmd in ("import", "sync", "check", "refresh"):
+    for cmd in ("check",):
         rc = main([cmd])
         assert rc == 2
         err = capsys.readouterr().err

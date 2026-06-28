@@ -17,7 +17,7 @@ from .compose import (
 from .registry import RegistryError, describe_source, load_distribution
 from .workspace import find_repo_root, output_path
 
-STUB_COMMANDS = ("import", "sync", "check", "refresh")
+STUB_COMMANDS = ("check",)
 
 
 def _build_parser() -> argparse.ArgumentParser:

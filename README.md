@@ -162,10 +162,16 @@ silently empty output for a document it does not understand.
 ## Commands
 
 - `compose` — render a `.repos` file from a distribution (implemented).
-- `import` — *(not implemented yet)*
-- `sync` — *(not implemented yet)*
-- `check` — *(not implemented yet)*
-- `refresh` — *(not implemented yet)*
+- `check` — report registry/validation drift for a workspace *(planned)*.
+
+The CLI owns **registry-domain** operations and leaves workspace/git work to
+[vcstool][vcstool]. There is deliberately no `import` command — pipe `compose`
+straight into vcs:
+
+```bash
+aw-index-cli compose --rosdistro jazzy --packages autoware_livox_tag_filter --stdout \
+  | vcs import src
+```
 
 ## License
 
