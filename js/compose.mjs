@@ -12,7 +12,7 @@
 // the browser via `<script type="module">` and by Node's built-in test runner.
 
 /** Keep equal to `src/aw_index_cli/__init__.py` `__version__` (asserted by conformance). */
-export const VERSION = "0.3.0";
+export const VERSION = "0.4.0";
 
 /** Registry defaults, mirroring `registry.py` `DEFAULT_REPO`/`DEFAULT_REF`. */
 export const DEFAULT_REPO = "autowarefoundation/autoware-index";
