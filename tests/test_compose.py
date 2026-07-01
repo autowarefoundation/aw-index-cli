@@ -174,7 +174,7 @@ def test_to_repos_entries_field_mapping(sample_distribution):
     entries = to_repos_entries(repositories)
     # Order preserved (sorted by repository key).
     assert list(entries) == ["alpha-mono", "mid-repo", "zeta-stack"]
-    # branch ref; pure vcstool entry (no packages field, even for a monorepo)
+    # branch ref; pure vcs2l entry (no packages field, even for a monorepo)
     assert entries["alpha-mono"] == {
         "type": "git",
         "url": "https://github.com/example/alpha_mono",
@@ -215,11 +215,11 @@ def test_to_repos_entries_partial_selection_emits_pure_entry():
         ]
     )
     # The entry is emitted even though only one of the repo's packages was
-    # selected, and it is a pure vcstool entry — no packages field.
+    # selected, and it is a pure vcs2l entry — no packages field.
     assert set(entries["mono"]) == {"type", "url", "version"}
 
 
-def test_to_repos_entries_only_vcstool_fields():
+def test_to_repos_entries_only_vcs2l_fields():
     """Regression guard: composed entries carry exactly type/url/version."""
     repositories = select_repositories(
         # build a minimal distribution inline to exercise every ref kind
@@ -407,7 +407,7 @@ def test_render_repos_tag_filter(sample_distribution):
     text = render_repos(sample_distribution, tags=["planning"], header_lines=header)
     parsed = yaml.safe_load(text)
     assert list(parsed["repositories"]) == ["mid-repo"]
-    # pure vcstool entry — no packages field in the body
+    # pure vcs2l entry — no packages field in the body
     assert "packages" not in parsed["repositories"]["mid-repo"]
 
 
@@ -418,7 +418,7 @@ def test_render_repos_monorepo_partial_selection(sample_distribution):
     text = render_repos(sample_distribution, tags=["sensing"], header_lines=header)
     parsed = yaml.safe_load(text)
     # The monorepo entry is still emitted for a partial selection, as a pure
-    # vcstool entry (no packages field).
+    # vcs2l entry (no packages field).
     assert list(parsed["repositories"]) == ["alpha-mono"]
     assert "packages" not in parsed["repositories"]["alpha-mono"]
 

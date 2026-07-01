@@ -117,7 +117,7 @@ export function selectRepositories(
  * Map selected repositories to an ordered `Map<key, {type,url,version}>`.
  *
  * The entry key is the registry repository key, so a monorepo's packages
- * collapse into one clone. Each entry carries exactly vcstool's
+ * collapse into one clone. Each entry carries exactly vcs2l's
  * `type`/`url`/`version`; `version` is `ref.value` verbatim. Throws
  * `ComposeError` on missing `url`/`ref.value` or a non-mapping `ref`. Mirrors
  * `compose.to_repos_entries` (a Map preserves insertion order for every key).

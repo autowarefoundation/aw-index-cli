@@ -81,7 +81,7 @@ def to_repos_entries(repositories: list[tuple[str, dict, list[str]]]) -> dict:
 
     The entry key is the registry repository key, so packages from one
     monorepo collapse into a single clone. Each entry carries exactly
-    vcstool's ``type``/``url``/``version`` and nothing else — the format
+    vcs2l's ``type``/``url``/``version`` and nothing else — the format
     defines no other per-entry fields. The selected registered package names
     are recorded in the provenance header comments (see
     :func:`provenance_header`), not in the YAML body. Raises

@@ -1,7 +1,7 @@
 # `js/` — browser-reusable composition
 
 `compose.mjs` is a dependency-free ES module that reimplements aw-index-cli's
-registry → vcstool `.repos` composition for JavaScript consumers — primarily the
+registry → vcs2l `.repos` composition for JavaScript consumers — primarily the
 [autoware-index](https://github.com/autowarefoundation/autoware-index) browse
 site's "repos builder", which reuses it so the site and the CLI never fork the
 transform.
