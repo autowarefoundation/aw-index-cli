@@ -58,12 +58,10 @@ def selected_packages_from_header(text: str) -> dict[str, list[str]]:
     result: dict[str, list[str]] = {}
     lines = text.splitlines()
     try:
-        start = next(
-            i for i, ln in enumerate(lines) if ln.strip() == _SELECTION_HEADER
-        )
+        start = next(i for i, ln in enumerate(lines) if ln.strip() == _SELECTION_HEADER)
     except StopIteration:
         return result
-    for ln in lines[start + 1:]:
+    for ln in lines[start + 1 :]:
         match = _SELECTION_LINE_RE.match(ln)
         if not match:
             break

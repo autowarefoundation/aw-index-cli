@@ -1,12 +1,12 @@
 version: 2
 updates:
   # Keep the versions of the actions used in our workflows up to date.
-  - package-ecosystem: "github-actions"
-    directory: "/"
+  - package-ecosystem: github-actions
+    directory: /
     schedule:
-      interval: "weekly"
+      interval: weekly
     commit-message:
-      prefix: "ci"
+      prefix: ci
     groups:
       # Bundle all action bumps into a single PR to cut down on noise.
       github-actions:

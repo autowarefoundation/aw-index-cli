@@ -4,13 +4,11 @@ from __future__ import annotations
 
 import pytest
 
-from aw_index_cli.check import (
-    CheckError,
-    evaluate,
-    parse_repos,
-    rosdistro_from_header,
-    selected_packages_from_header,
-)
+from aw_index_cli.check import CheckError
+from aw_index_cli.check import evaluate
+from aw_index_cli.check import parse_repos
+from aw_index_cli.check import rosdistro_from_header
+from aw_index_cli.check import selected_packages_from_header
 from aw_index_cli.registry import RegistryError
 
 ALPHA_URL = "https://github.com/example/alpha_mono"
@@ -21,11 +19,7 @@ ZETA_URL = "https://github.com/example/zeta_stack"
 # --- parse_repos ---------------------------------------------------------------
 def test_parse_repos_ok():
     text = (
-        "repositories:\n"
-        "  r:\n"
-        "    type: git\n"
-        "    url: https://x/r\n"
-        "    version: main\n"
+        "repositories:\n" "  r:\n" "    type: git\n" "    url: https://x/r\n" "    version: main\n"
     )
     assert parse_repos(text) == {"r": {"url": "https://x/r", "version": "main"}}
 
@@ -96,10 +90,7 @@ def test_evaluate_all_pass(sample_distribution):
         "at": "2026-06-27T00:00:00Z",
         "resolved_sha": "s",
     }
-    records = {
-        p: record
-        for p in ("alpha_sensing", "alpha_perception", "mid_pkg", "zeta_pkg")
-    }
+    records = {p: record for p in ("alpha_sensing", "alpha_perception", "mid_pkg", "zeta_pkg")}
     rows = evaluate(
         repos, sample_distribution, {}, fetch_record=_fetch(records), resolve_sha=_no_sha
     )
@@ -130,9 +121,7 @@ def test_evaluate_ref_drift_is_problem(sample_distribution):
 
 def test_evaluate_removed_repo_is_problem(sample_distribution):
     repos = {"ghost": {"url": "https://x/ghost", "version": "main"}}
-    rows = evaluate(
-        repos, sample_distribution, {}, fetch_record=_fetch({}), resolve_sha=_no_sha
-    )
+    rows = evaluate(repos, sample_distribution, {}, fetch_record=_fetch({}), resolve_sha=_no_sha)
     assert rows[0]["problem"]
     assert rows[0]["package"] == "ghost"
     assert "removed" in rows[0]["note"]
@@ -140,9 +129,7 @@ def test_evaluate_removed_repo_is_problem(sample_distribution):
 
 def test_evaluate_unvalidated_soft_unless_strict(sample_distribution):
     repos = {"mid-repo": {"url": MID_URL, "version": "v1.2.3"}}
-    rows = evaluate(
-        repos, sample_distribution, {}, fetch_record=_fetch({}), resolve_sha=_no_sha
-    )
+    rows = evaluate(repos, sample_distribution, {}, fetch_record=_fetch({}), resolve_sha=_no_sha)
     assert not rows[0]["problem"]
     assert "unvalidated" in rows[0]["note"]
     strict_rows = evaluate(

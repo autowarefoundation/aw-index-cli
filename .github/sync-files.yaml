@@ -1,0 +1,11 @@
+- repository: autowarefoundation/sync-file-templates
+  source-dir: sources
+  files:
+    - source: .github/workflows/semantic-pull-request.yaml
+    - source: .github/workflows/sync-files.yaml
+    - source: .pre-commit-config.yaml
+    - source: .yamllint.yaml
+    - source: .markdownlint.yaml
+    - source: .prettierrc.yaml
+    - source: .prettierignore
+    - source: setup.cfg

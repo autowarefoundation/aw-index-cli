@@ -4,11 +4,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from aw_index_cli.workspace import (
-    discover_repos_files,
-    find_repo_root,
-    output_path,
-)
+from aw_index_cli.workspace import discover_repos_files
+from aw_index_cli.workspace import find_repo_root
+from aw_index_cli.workspace import output_path
 
 
 def test_find_repo_root_in_start(tmp_path):

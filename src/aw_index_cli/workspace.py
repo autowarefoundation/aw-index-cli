@@ -23,9 +23,7 @@ def output_path(repo_root: str | Path, name: str = "autoware-index") -> Path:
     return Path(repo_root) / "repositories" / f"{name}.repos"
 
 
-def discover_repos_files(
-    start: str | Path = ".", name: str = "autoware-index"
-) -> list[Path]:
+def discover_repos_files(start: str | Path = ".", name: str = "autoware-index") -> list[Path]:
     """Find ``<name>.repos`` in ``start`` or one level deep, for auto-discovery.
 
     A file directly in ``start`` wins outright (returned as the sole match). Only

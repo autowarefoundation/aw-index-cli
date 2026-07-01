@@ -2,16 +2,14 @@
 
 from __future__ import annotations
 
-import yaml
 import pytest
+import yaml
 
-from aw_index_cli.compose import (
-    ComposeError,
-    provenance_header,
-    render_repos,
-    select_repositories,
-    to_repos_entries,
-)
+from aw_index_cli.compose import ComposeError
+from aw_index_cli.compose import provenance_header
+from aw_index_cli.compose import render_repos
+from aw_index_cli.compose import select_repositories
+from aw_index_cli.compose import to_repos_entries
 
 
 def test_select_no_tags_returns_all_sorted(sample_distribution):
@@ -114,9 +112,7 @@ def test_select_repo_without_packages_is_excluded():
 def test_select_by_packages(sample_distribution):
     # A package filter keeps only the named packages, across whichever repos
     # host them; the monorepo entry lists only the matched package.
-    selection = select_repositories(
-        sample_distribution, packages=["alpha_sensing", "mid_pkg"]
-    )
+    selection = select_repositories(sample_distribution, packages=["alpha_sensing", "mid_pkg"])
     assert [(key, names) for key, _, names in selection] == [
         ("alpha-mono", ["alpha_sensing"]),
         ("mid-repo", ["mid_pkg"]),
@@ -151,9 +147,7 @@ def test_select_unknown_package_raises(sample_distribution):
 
 
 def test_select_unknown_repository_raises(sample_distribution):
-    with pytest.raises(
-        ComposeError, match="no such repository entry in the distribution: 'nope'"
-    ):
+    with pytest.raises(ComposeError, match="no such repository entry in the distribution: 'nope'"):
         select_repositories(sample_distribution, repository=["nope"])
 
 
@@ -311,9 +305,7 @@ def test_provenance_header_tags_rendered():
 
 
 def test_provenance_header_autoware_only_when_given():
-    without = provenance_header(
-        tool_version="0.1.0", ros_distro="jazzy", source="src"
-    )
+    without = provenance_header(tool_version="0.1.0", ros_distro="jazzy", source="src")
     assert not any("autoware" in line for line in without)
     with_aw = provenance_header(
         tool_version="0.1.0", ros_distro="jazzy", source="src", autoware="2025.02"
@@ -323,9 +315,7 @@ def test_provenance_header_autoware_only_when_given():
 
 
 def test_provenance_header_generated_at_optional():
-    without = provenance_header(
-        tool_version="0.1.0", ros_distro="jazzy", source="src"
-    )
+    without = provenance_header(tool_version="0.1.0", ros_distro="jazzy", source="src")
     assert not any("generated_at" in line for line in without)
     with_ts = provenance_header(
         tool_version="0.1.0",
@@ -382,9 +372,7 @@ def test_provenance_header_filter_lines_omitted_when_absent():
 
 
 def test_render_repos_valid_yaml_roundtrip(sample_distribution):
-    header = provenance_header(
-        tool_version="0.1.0", ros_distro="jazzy", source="src"
-    )
+    header = provenance_header(tool_version="0.1.0", ros_distro="jazzy", source="src")
     text = render_repos(sample_distribution, header_lines=header)
     parsed = yaml.safe_load(text)
     assert parsed["repositories"]["alpha-mono"] == {
@@ -396,9 +384,7 @@ def test_render_repos_valid_yaml_roundtrip(sample_distribution):
 
 
 def test_render_repos_deterministic_without_generated_at(sample_distribution):
-    header = provenance_header(
-        tool_version="0.1.0", ros_distro="jazzy", source="src"
-    )
+    header = provenance_header(tool_version="0.1.0", ros_distro="jazzy", source="src")
     first = render_repos(sample_distribution, header_lines=header)
     second = render_repos(sample_distribution, header_lines=header)
     assert first == second
@@ -438,9 +424,7 @@ def test_render_repos_monorepo_partial_selection(sample_distribution):
 
 
 def test_render_repos_header_precedes_body_one_trailing_newline(sample_distribution):
-    header = provenance_header(
-        tool_version="0.1.0", ros_distro="jazzy", source="src"
-    )
+    header = provenance_header(tool_version="0.1.0", ros_distro="jazzy", source="src")
     text = render_repos(sample_distribution, header_lines=header)
     lines = text.split("\n")
     # The rendered text starts with the first header line.
@@ -455,11 +439,7 @@ def test_render_repos_header_precedes_body_one_trailing_newline(sample_distribut
 
 
 def test_render_repos_empty_distribution():
-    header = provenance_header(
-        tool_version="0.1.0", ros_distro="jazzy", source="src"
-    )
-    text = render_repos(
-        {"ros_distro": "jazzy", "repositories": {}}, header_lines=header
-    )
+    header = provenance_header(tool_version="0.1.0", ros_distro="jazzy", source="src")
+    text = render_repos({"ros_distro": "jazzy", "repositories": {}}, header_lines=header)
     parsed = yaml.safe_load(text)
     assert parsed == {"repositories": {}}

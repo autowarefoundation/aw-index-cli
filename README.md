@@ -10,7 +10,7 @@ can `vcs import` into a workspace.
 The registry is **repository-keyed**: each entry is a repository (identified by
 a registry-unique key) carrying **exactly one `ref`** and one or more
 registered packages. Ref skew between packages of the same repository is
-unrepresentable by construction. The registry does *not* track Autoware
+unrepresentable by construction. The registry does _not_ track Autoware
 versions — those are resolved at sweep time, not stored. `compose` therefore
 never selects a ref by Autoware version; the `--autoware` flag is recorded in
 the header for provenance only.

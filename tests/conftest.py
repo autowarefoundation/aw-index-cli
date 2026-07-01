@@ -5,8 +5,8 @@ from __future__ import annotations
 import io
 import urllib.error
 
-import yaml
 import pytest
+import yaml
 
 
 class _FakeResponse:
@@ -27,7 +27,7 @@ class _FakeResponse:
 
 @pytest.fixture
 def sample_distribution() -> dict:
-    """A small but representative schema_version "2" jazzy distribution dict.
+    """Return a small but representative schema_version "2" jazzy distribution dict.
 
     Covers a branch ref, a tag ref, and a sha ref; a monorepo with two
     packages plus two single-package repositories; and varied tags so tag
@@ -98,7 +98,7 @@ def sample_distribution() -> dict:
 
 @pytest.fixture
 def distributions_dir(tmp_path, sample_distribution):
-    """A temp registry directory holding ``distributions/jazzy.yaml``."""
+    """Create a temp registry directory holding ``distributions/jazzy.yaml``."""
     dist_dir = tmp_path / "distributions"
     dist_dir.mkdir()
     (dist_dir / "jazzy.yaml").write_text(
@@ -110,21 +110,17 @@ def distributions_dir(tmp_path, sample_distribution):
 
 @pytest.fixture
 def sample_repos_text(sample_distribution) -> str:
-    """A real composed ``.repos`` for ``sample_distribution`` (header + body).
+    """Return a real composed ``.repos`` for ``sample_distribution`` (header + body).
 
     Generated through the actual compose functions so it always matches what the
     CLI emits — including the ``# rosdistro:`` line and the
     ``# selected packages by repository:`` block that ``check`` parses.
     """
-    from aw_index_cli.compose import (
-        provenance_header,
-        render_repos,
-        select_repositories,
-    )
+    from aw_index_cli.compose import provenance_header
+    from aw_index_cli.compose import render_repos
+    from aw_index_cli.compose import select_repositories
 
-    selection = [
-        (key, names) for key, _spec, names in select_repositories(sample_distribution)
-    ]
+    selection = [(key, names) for key, _spec, names in select_repositories(sample_distribution)]
     header = provenance_header(
         tool_version="0.1.0",
         ros_distro="jazzy",
@@ -136,7 +132,7 @@ def sample_repos_text(sample_distribution) -> str:
 
 @pytest.fixture
 def history_urlopen():
-    """Factory: ``{package: ndjson_text}`` → a urlopen routing history by URL.
+    """Return a urlopen factory from ``{package: ndjson_text}`` that routes history by URL.
 
     Any history URL whose package is in the mapping returns that NDJSON; anything
     else raises HTTP 404 (so unmapped packages read as "no records yet").

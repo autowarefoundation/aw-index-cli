@@ -15,8 +15,7 @@ def render_table(rows: list[dict], columns: list[tuple[str, str]]) -> str:
     if not rows:
         return ""
     widths = [
-        max(len(header), *(len(str(row.get(key, ""))) for row in rows))
-        for key, header in columns
+        max(len(header), *(len(str(row.get(key, ""))) for row in rows)) for key, header in columns
     ]
 
     def line(values: list) -> str:

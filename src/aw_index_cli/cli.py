@@ -3,37 +3,37 @@
 from __future__ import annotations
 
 import argparse
-import sys
-from datetime import datetime, timezone
+from datetime import datetime
+from datetime import timezone
 from pathlib import Path
+import sys
 
-from . import __version__
-from .check import (
-    CHECK_COLUMNS,
-    CheckError,
-    evaluate as check_evaluate,
-    parse_repos,
-    rosdistro_from_header,
-    selected_packages_from_header,
-)
-from .compose import (
-    ComposeError,
-    provenance_header,
-    render_repos,
-    select_repositories,
-)
+from .check import CHECK_COLUMNS
+from .check import CheckError
+from .check import evaluate as check_evaluate
+from .check import parse_repos
+from .check import rosdistro_from_header
+from .check import selected_packages_from_header
+from .compose import ComposeError
+from .compose import provenance_header
+from .compose import render_repos
+from .compose import select_repositories
 from .gitref import remote_sha
-from .history import DEFAULT_DATA_REF, latest_record
-from .listing import LIST_COLUMNS, evaluate as list_evaluate
-from .registry import (
-    DEFAULT_REF,
-    DEFAULT_REPO,
-    RegistryError,
-    describe_source,
-    load_distribution,
-)
-from .report import render_json, render_table
-from .workspace import discover_repos_files, find_repo_root, output_path
+from .history import DEFAULT_DATA_REF
+from .history import latest_record
+from . import __version__
+from .listing import LIST_COLUMNS
+from .listing import evaluate as list_evaluate
+from .registry import DEFAULT_REF
+from .registry import DEFAULT_REPO
+from .registry import RegistryError
+from .registry import describe_source
+from .registry import load_distribution
+from .report import render_json
+from .report import render_table
+from .workspace import discover_repos_files
+from .workspace import find_repo_root
+from .workspace import output_path
 
 
 def _add_registry_source_args(parser: argparse.ArgumentParser) -> None:
@@ -187,9 +187,7 @@ def _cmd_compose(args: argparse.Namespace) -> int:
     repo_count = len(selection)
     package_count = sum(len(names) for _, names in selection)
     noun = "entry" if repo_count == 1 else "entries"
-    listing = ", ".join(
-        f"{key} ({', '.join(names)})" for key, names in selection
-    )
+    listing = ", ".join(f"{key} ({', '.join(names)})" for key, names in selection)
     summary = (
         f"Wrote {repo_count} repository {noun} covering "
         f"{package_count} registered package(s) to {path}"
@@ -215,9 +213,7 @@ def _cmd_check(args: argparse.Namespace) -> int:
                 )
             if len(matches) > 1:
                 found = ", ".join(str(p) for p in matches)
-                raise CheckError(
-                    f"multiple autoware-index.repos found ({found}); pass --repos"
-                )
+                raise CheckError(f"multiple autoware-index.repos found ({found}); pass --repos")
             repos_path = matches[0]
 
         try:
