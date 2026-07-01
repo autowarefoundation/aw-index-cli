@@ -11,17 +11,16 @@ transform.
 The Python package (`src/aw_index_cli/compose.py`) remains the reference.
 `compose.mjs` mirrors it 1:1 and is pinned to it by
 [`tests/test_conformance.py`](../tests/test_conformance.py), which runs both over
-shared fixtures and asserts **byte-for-byte identical** `.repos` output (including
-PyYAML's exact scalar quoting). If you change one, change the other; the
-conformance job in CI fails on drift.
+shared fixtures and asserts identical `.repos` **content** — same parsed YAML body
+and same `#` header lines. If you change one, change the other; the conformance
+job in CI fails on drift.
 
-Byte-parity holds over the registry's scalar domain — printable ASCII refs,
-SHAs, tags, branches, URLs, and `org/repo` keys up to PyYAML's inline
-simple-key length (122 characters). Outside that domain the module **fails loud**
-with `ComposeError` rather than emitting bytes that would differ from the Python
-composer — see the guard comments in `compose.mjs` for the exact PyYAML cases
-(non-ASCII/control scalars, empty or ≥ 123-character keys, and space-containing
-values that would line-fold). None of these occur for real registry values.
+The contract is content, not bytes: `vcs import` parses the `.repos` file, so what
+must match is the parsed result, not the exact formatting. Both implementations
+must therefore quote a scalar that would otherwise reload as a non-string (a tag
+`1.20`, a branch `on`) — that is a content requirement. Pure formatting that PyYAML
+does differently — escaping non-ASCII, folding long lines, the explicit `? key`
+form for long keys — is allowed to differ, since it reparses to the same content.
 
 Keep `VERSION` in `compose.mjs` equal to `__version__` in
 `src/aw_index_cli/__init__.py` (also asserted by the conformance test).

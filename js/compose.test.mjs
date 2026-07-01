@@ -1,7 +1,7 @@
 // Unit tests for compose.mjs, run with Node's built-in test runner:
 //   node --test js/
-// Zero dependencies. The `.repos` body's byte-for-byte parity with the Python
-// compose is additionally locked by tests/test_conformance.py.
+// Zero dependencies. The `.repos` content parity with the Python compose is
+// additionally locked by tests/test_conformance.py.
 
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -263,53 +263,4 @@ test("composeCommand: space-separated, sorted, with vcs import", () => {
     cmd,
     "aw-index-cli compose --rosdistro jazzy --packages alpha_sensing mid_pkg --stdout | vcs import src",
   );
-});
-
-test("yamlScalar throws on non-printable-ASCII (fails loud, no silent divergence)", () => {
-  // PyYAML would double-quote/escape these; this port refuses them instead of
-  // emitting bytes that would differ from the Python composer.
-  for (const bad of ["café", "naïve", "a\tb", "a\nb", "x\x7f", "\x00z", "π", "😀"]) {
-    assert.throws(() => yamlScalar(bad), ComposeError, `yamlScalar(${JSON.stringify(bad)})`);
-  }
-  // The printable-ASCII boundary (0x20 space … 0x7E '~') stays in-domain.
-  assert.equal(yamlScalar(" "), "' '");
-  assert.equal(yamlScalar("~"), "'~'");
-  assert.equal(yamlScalar("a~b"), "a~b");
-});
-
-test("composeReposFile rejects repository keys outside the inline simple-key domain", () => {
-  const mk = (key) => ({
-    repositories: {
-      [key]: {
-        url: "https://x/y",
-        ref: { kind: "branch", value: "main" },
-        packages: { p: { tags: ["t"] } },
-      },
-    },
-  });
-  const opts = { rosDistro: "jazzy", source: "src" };
-  // A 122-char key is still emitted inline (matches PyYAML) …
-  const key122 = "o/" + "r".repeat(120);
-  assert.ok(composeReposFile(mk(key122), opts).includes(`  ${key122}:\n`));
-  // … a 123-char key would trigger PyYAML's explicit `? key` form, so we refuse it.
-  assert.throws(() => composeReposFile(mk("o/" + "r".repeat(121)), opts), ComposeError);
-  // Empty key (PyYAML would emit `? ''`) is likewise refused.
-  assert.throws(() => composeReposFile(mk(""), opts), ComposeError);
-});
-
-test("composeReposFile refuses values that would line-fold, but keeps long space-free values", () => {
-  const mk = (value) => ({
-    repositories: {
-      "o/r": {
-        url: "https://x/y",
-        ref: { kind: "tag", value },
-        packages: { p: { tags: ["t"] } },
-      },
-    },
-  });
-  const opts = { rosDistro: "jazzy", source: "src" };
-  // A long value containing spaces would line-fold under PyYAML -> refuse.
-  assert.throws(() => composeReposFile(mk("x ".repeat(60)), opts), ComposeError);
-  // A long value with no spaces never folds (no break point) -> emitted inline.
-  assert.doesNotThrow(() => composeReposFile(mk("v" + "1".repeat(200)), opts));
 });

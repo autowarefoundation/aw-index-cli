@@ -1,8 +1,10 @@
-"""Conformance: ``js/compose.mjs`` must match the Python compose byte-for-byte.
+"""Conformance: ``js/compose.mjs`` must match the Python compose in content.
 
 The browse site reuses ``js/compose.mjs`` to build ``.repos`` files; this test is
 the guarantee that the JS port cannot silently diverge from the reference Python
-implementation. It runs both over identical inputs and asserts identical output.
+implementation. It runs both over identical inputs and asserts identical content
+— same parsed YAML body and same ``#`` header lines — while allowing byte-level
+formatting (scalar quoting, line wrapping) to differ, since it reparses the same.
 
 Requires ``node`` on PATH (skipped otherwise); kept out of the pure-offline unit
 suite's guarantees but runs in CI's dedicated conformance job.
@@ -18,6 +20,7 @@ import shutil
 import subprocess
 
 import pytest
+import yaml
 
 from aw_index_cli import __version__
 from aw_index_cli.compose import provenance_header
@@ -122,6 +125,20 @@ def _js_compose(distribution: dict, opts: dict) -> str:
     return proc.stdout
 
 
+def _assert_same_content(js: str, py: str) -> None:
+    """Assert the two ``.repos`` documents carry identical content.
+
+    Content is the parsed YAML body plus the ``#`` provenance header lines
+    (comments are invisible to the parser, so they are compared separately).
+    Byte-level formatting — scalar quoting, line folding, the explicit ``? key``
+    form for long keys — may differ; it reparses to the same content.
+    """
+    assert yaml.safe_load(js) == yaml.safe_load(py)
+    js_header = [line for line in js.splitlines() if line.startswith("#")]
+    py_header = [line for line in py.splitlines() if line.startswith("#")]
+    assert js_header == py_header
+
+
 @pytest.mark.parametrize(
     "opts",
     [
@@ -138,19 +155,23 @@ def _js_compose(distribution: dict, opts: dict) -> str:
 )
 def test_js_matches_python(sample_distribution, opts):
     merged = {**BASE, **opts}
-    assert _js_compose(sample_distribution, merged) == _py_compose(sample_distribution, merged)
+    _assert_same_content(
+        _js_compose(sample_distribution, merged), _py_compose(sample_distribution, merged)
+    )
 
 
 @pytest.mark.parametrize("opts", [{}, {"packages": ["kept_pkg"]}])
 def test_js_matches_python_empty_containers(opts):
     merged = {**BASE, **opts}
-    assert _js_compose(EMPTY_CONTAINERS, merged) == _py_compose(EMPTY_CONTAINERS, merged)
+    _assert_same_content(
+        _js_compose(EMPTY_CONTAINERS, merged), _py_compose(EMPTY_CONTAINERS, merged)
+    )
 
 
 @pytest.mark.parametrize("opts", [{}, {"packages": ["on_pkg"]}])
 def test_js_matches_python_adversarial_scalars(opts):
     merged = {**BASE, **opts}
-    assert _js_compose(ADVERSARIAL, merged) == _py_compose(ADVERSARIAL, merged)
+    _assert_same_content(_js_compose(ADVERSARIAL, merged), _py_compose(ADVERSARIAL, merged))
 
 
 def test_js_version_matches_python():
@@ -177,9 +198,11 @@ def _single_repo_dist(*, key: str, ref_value: str) -> dict:
 
 # Registry-realistic scalars that sit on PyYAML's implicit-resolver boundaries
 # (bool/int/float/null/timestamp/sexagesimal). The committed fixtures only
-# exercised "1.20"/"on"; this drives the whole resolver-sensitive set end-to-end
-# so that if a RESOLVERS regex in compose.mjs ever drifts from the installed
-# PyYAML, the byte-parity assertion fails here rather than in production.
+# exercised "1.20"/"on"; this drives the whole resolver-sensitive set end-to-end.
+# This is the load-bearing content check: if a RESOLVERS regex in compose.mjs
+# ever drifts from the installed PyYAML, one side leaves a scalar plain and it
+# reloads as the wrong type — a *content* difference the assertion catches here
+# rather than in production.
 RESOLVER_BOUNDARY_SCALARS = [
     "no",
     "off",
@@ -215,25 +238,35 @@ RESOLVER_BOUNDARY_SCALARS = [
 @pytest.mark.parametrize("scalar", RESOLVER_BOUNDARY_SCALARS)
 def test_js_matches_python_resolver_boundary(scalar):
     dist = _single_repo_dist(key="example/repo", ref_value=scalar)
-    assert _js_compose(dist, BASE) == _py_compose(dist, BASE)
+    _assert_same_content(_js_compose(dist, BASE), _py_compose(dist, BASE))
 
 
-def test_js_matches_python_long_space_free_value():
-    # A long space-free ref value has no fold points, so PyYAML emits it on a
-    # single line past 80 columns and the port matches byte-for-byte (the fold
-    # guard only trips on space-containing values, which real refs never are).
-    dist = _single_repo_dist(key="example/repo", ref_value="v" + "1" * 200)
-    assert _js_compose(dist, BASE) == _py_compose(dist, BASE)
+@pytest.mark.parametrize(
+    "key, ref_value",
+    [
+        ("example/repo", "v" + "1" * 200),  # long, space-free: neither side folds
+        ("example/repo", ("relX " * 40).strip()),  # long, spaced: PyYAML folds, JS does not
+        ("example/repo", "release " * 30),  # trailing space: PyYAML quotes + folds
+        ("org/" + "r" * 130, "main"),  # >=123-char key: PyYAML uses `? key`, JS inline
+        ("example/repo", "café-naïve"),  # non-ASCII: PyYAML escapes, JS emits plain
+    ],
+)
+def test_js_matches_python_formatting_may_differ(key, ref_value):
+    # Inputs where PyYAML and the JS port emit *different bytes* (line folding,
+    # quoting, the explicit `? key` form, non-ASCII escaping) yet parse to the
+    # same content — exactly what the content contract allows and the old
+    # byte-for-byte contract forbade.
+    dist = _single_repo_dist(key=key, ref_value=ref_value)
+    _assert_same_content(_js_compose(dist, BASE), _py_compose(dist, BASE))
 
 
 def test_js_matches_python_fuzz_printable_ascii():
-    """Property test: random printable-ASCII keys/urls/refs stay byte-identical.
+    """Property test: random printable-ASCII keys/urls/refs stay content-identical.
 
-    The fixture-based tests above pin specific inputs; this checks the whole
-    printable-ASCII scalar domain the module claims parity over, in both key and
-    value position. Keys are kept < 123 chars (the inline simple-key domain) and
-    all scalars short enough not to trigger PyYAML's line folding, so every
-    generated document is expected to render identically on both sides.
+    The fixture-based tests above pin specific inputs; this sweeps the whole
+    printable-ASCII scalar domain in both key and value position. Scalars are kept
+    short and space-free so the two sides also happen to render byte-identically,
+    which isolates any quoting-decision drift from mere formatting differences.
     """
     rng = random.Random(20260701)
     printable = [chr(c) for c in range(0x20, 0x7F)]
@@ -250,4 +283,4 @@ def test_js_matches_python_fuzz_printable_ascii():
                 "packages": {"pkg": {"tags": ["t"]}},
             }
         dist = {"schema_version": "2", "ros_distro": "jazzy", "repositories": repositories}
-        assert _js_compose(dist, BASE) == _py_compose(dist, BASE)
+        _assert_same_content(_js_compose(dist, BASE), _py_compose(dist, BASE))
