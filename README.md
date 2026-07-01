@@ -52,6 +52,7 @@ aw-index-cli compose --rosdistro jazzy \
   --packages autoware_livox_tag_filter --stdout
 ```
 
+> [!TIP]
 > Omitting all of `--packages`, `--repository`, and `--tags` composes the
 > **entire** distribution — supported, but usually you want to name what you
 > consume.
@@ -102,12 +103,14 @@ body.
   hard error, never a silent empty result.
 - **A monorepo collapses to one entry** at its single `ref`, however many of its
   packages match.
-- **The clone may include unregistered sibling packages.** To build only what you
-  asked for, pass the names from the header comment to colcon:
 
-  ```bash
-  colcon build --packages-up-to autoware_livox_tag_filter  # names from the header comment
-  ```
+> [!CAUTION]
+> A clone may include unregistered sibling packages the index makes no claims
+> about. To build only what you asked for, pass the header-comment names to colcon:
+
+```bash
+colcon build --packages-up-to autoware_livox_tag_filter  # names from the header comment
+```
 
 ### Key options
 
@@ -129,7 +132,8 @@ body.
 - `check` — gate a composed `.repos` against the registry and sweep history.
 - `list` — list registry packages with their latest validation status.
 
-There is deliberately no `import` command — pipe `compose` straight into vcs:
+> [!IMPORTANT]
+> There is deliberately no `import` command — pipe `compose` straight into vcs:
 
 ```bash
 aw-index-cli compose --rosdistro jazzy --packages autoware_livox_tag_filter --stdout \
@@ -161,8 +165,11 @@ latest status (`pass`/`fail`/`—`) and the Autoware version tested, and — for
 - **Exit `2`** — could not run (bad/missing `.repos`, registry load error).
 
 Options mirror `compose`, plus `--data-ref` (default `data`), `--strict`, and
-`--format {table,json}`. The branch-drift check shells out to `git ls-remote`; if
-`git` is absent it is skipped and everything else still runs.
+`--format {table,json}`.
+
+> [!NOTE]
+> The branch-drift check shells out to `git ls-remote`; if `git` is absent it is
+> skipped and everything else still runs.
 
 ## `list`
 
