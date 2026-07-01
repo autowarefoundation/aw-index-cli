@@ -166,7 +166,11 @@ def render_repos(
     repository: list[str] | None = None,
     header_lines: list[str],
 ) -> str:
-    """Render the full ``.repos`` document (header comments + YAML body)."""
+    """Render the full ``.repos`` document (header comments + YAML body).
+
+    A blank line separates the ``#`` provenance header from the YAML body so the
+    two read as distinct sections.
+    """
     repositories = select_repositories(
         distribution, tags=tags, packages=packages, repository=repository
     )
@@ -176,4 +180,4 @@ def render_repos(
         sort_keys=False,
         default_flow_style=False,
     )
-    return "\n".join(header_lines) + "\n" + body
+    return "\n".join(header_lines) + "\n\n" + body

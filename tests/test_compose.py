@@ -431,8 +431,10 @@ def test_render_repos_header_precedes_body_one_trailing_newline(sample_distribut
     assert text.startswith(header[0])
     # Every header line precedes the YAML body, in order.
     assert lines[: len(header)] == header
-    # The line immediately after the last header line is 'repositories:'.
-    assert lines[len(header)] == "repositories:"
+    # A single blank line separates the header from the body.
+    assert lines[len(header)] == ""
+    # The body starts on the line right after that blank separator.
+    assert lines[len(header) + 1] == "repositories:"
     # Ends with exactly one trailing newline.
     assert text.endswith("\n")
     assert not text.endswith("\n\n")
