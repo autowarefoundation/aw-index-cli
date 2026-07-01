@@ -68,5 +68,11 @@ jobs:
       - name: Install package with dev extras
         run: python -m pip install -e ".[dev]"
 
+      # Fail loudly if node is unavailable: the conformance test skips itself
+      # when node is absent, which would let this job go green without ever
+      # checking parity. This job's whole purpose is to run it.
+      - name: Require node for the parity check
+        run: node --version
+
       - name: Assert js/compose.mjs matches the Python compose
         run: python -m pytest tests/test_conformance.py -v

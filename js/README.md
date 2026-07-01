@@ -15,6 +15,12 @@ shared fixtures and asserts **byte-for-byte identical** `.repos` output (includi
 PyYAML's exact scalar quoting). If you change one, change the other; the
 conformance job in CI fails on drift.
 
+Byte-parity holds over the registry's scalar domain — printable ASCII refs,
+SHAs, tags, branches, URLs, and `org/repo` keys. `yamlScalar` does not reproduce
+the double-quoted style PyYAML `safe_dump` uses for non-ASCII (default
+`allow_unicode=False`) or control characters, since neither occurs in that
+domain.
+
 Keep `VERSION` in `compose.mjs` equal to `__version__` in
 `src/aw_index_cli/__init__.py` (also asserted by the conformance test).
 

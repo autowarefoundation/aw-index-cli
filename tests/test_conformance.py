@@ -56,6 +56,31 @@ ADVERSARIAL = {
     },
 }
 
+# Empty/absent package containers must be handled identically on both sides
+# (Python's ``... or {}`` vs JS's truthy ``[]``): such a repo selects nothing
+# and drops out, rather than erroring on one side only.
+EMPTY_CONTAINERS = {
+    "schema_version": "2",
+    "ros_distro": "jazzy",
+    "repositories": {
+        "empty_list": {
+            "url": "https://github.com/example/empty_list",
+            "ref": {"kind": "branch", "value": "main"},
+            "packages": [],
+        },
+        "empty_map": {
+            "url": "https://github.com/example/empty_map",
+            "ref": {"kind": "branch", "value": "main"},
+            "packages": {},
+        },
+        "kept": {
+            "url": "https://github.com/example/kept",
+            "ref": {"kind": "tag", "value": "v1.0.0"},
+            "packages": {"kept_pkg": {"tags": ["z"]}},
+        },
+    },
+}
+
 
 def _py_compose(distribution: dict, opts: dict) -> str:
     tags = opts.get("tags")
@@ -106,11 +131,19 @@ def _js_compose(distribution: dict, opts: dict) -> str:
         {"packages": ["zeta_pkg", "alpha_sensing"]},
         {"repository": ["alpha-mono"]},
         {"autoware": "2025.02"},
+        {"generatedAt": "2026-01-01T00:00:00+00:00"},  # the default CLI header line
+        {"tags": ["nonexistent"]},  # empty selection -> `repositories: {}`
     ],
 )
 def test_js_matches_python(sample_distribution, opts):
     merged = {**BASE, **opts}
     assert _js_compose(sample_distribution, merged) == _py_compose(sample_distribution, merged)
+
+
+@pytest.mark.parametrize("opts", [{}, {"packages": ["kept_pkg"]}])
+def test_js_matches_python_empty_containers(opts):
+    merged = {**BASE, **opts}
+    assert _js_compose(EMPTY_CONTAINERS, merged) == _py_compose(EMPTY_CONTAINERS, merged)
 
 
 @pytest.mark.parametrize("opts", [{}, {"packages": ["on_pkg"]}])

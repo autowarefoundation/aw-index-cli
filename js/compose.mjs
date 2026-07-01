@@ -30,6 +30,16 @@ const cmp = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
 
 const isMapping = (v) => v !== null && typeof v === "object" && !Array.isArray(v);
 
+// Mirror Python's `x or {}` for a `packages`/`ref` value: any empty or absent
+// container (`null`/`undefined`/`[]`/`{}`) becomes an empty mapping, so an empty
+// `packages: []`/`ref: []` selects nothing (Python) rather than raising. JS `[]`
+// and `{}` are truthy, so `|| {}` alone would not match Python here.
+const mappingOrEmpty = (v) => {
+  if (!v) return {};
+  if (Array.isArray(v)) return v.length ? v : {};
+  return v;
+};
+
 function rejectUnknown(singular, plural, missing) {
   if (missing.length) {
     const names = missing
@@ -70,7 +80,7 @@ export function selectRepositories(
   rejectUnknown(
     "repository entry",
     "repository entries",
-    [...wantedRepos].filter((r) => !(r in allRepos)),
+    [...wantedRepos].filter((r) => !Object.hasOwn(allRepos, r)),
   );
   rejectUnknown(
     "package",
@@ -82,7 +92,7 @@ export function selectRepositories(
   for (const key of Object.keys(allRepos).sort(cmp)) {
     if (wantedRepos.size && !wantedRepos.has(key)) continue;
     const spec = allRepos[key] || {};
-    const specPkgs = (spec && spec.packages) || {};
+    const specPkgs = mappingOrEmpty(spec.packages);
     if (!isMapping(specPkgs)) {
       throw new ComposeError(
         `repository '${key}' has 'packages' that is not a mapping of package name to spec`,
@@ -117,7 +127,7 @@ export function toReposEntries(repositories) {
     const spec = specRaw || {};
     const url = spec.url;
     if (!url) throw new ComposeError(`repository '${key}' is missing 'url'`);
-    const ref = spec.ref || {};
+    const ref = mappingOrEmpty(spec.ref);
     if (!isMapping(ref)) {
       throw new ComposeError(
         `repository '${key}' has 'ref' that is not a mapping with 'kind' and 'value'`,
@@ -292,8 +302,10 @@ function needsPlainQuoting(s) {
   if ((first === "-" || first === "?" || first === ":") && (s.length === 1 || s[1] === " ")) {
     return true;
   }
+  // A ':' that ends the scalar (or precedes a space) is a block indicator.
+  if (s[s.length - 1] === ":" || s.includes(": ")) return true;
+  if (s.startsWith("---") || s.startsWith("...")) return true;
   if (s[s.length - 1] === " ") return true;
-  if (s.includes(": ")) return true;
   if (s.includes(" #")) return true;
   if (hasControlChar(s)) return true;
   return false;
@@ -304,6 +316,13 @@ function needsPlainQuoting(s) {
  * reloads as a string, otherwise single-quoted (with `'` doubled). This is the
  * one subtle piece — e.g. a numeric-looking tag `1.20`, or a branch `on`/`no`,
  * must be quoted so it round-trips as a string. Exported for unit testing.
+ *
+ * Faithful to `safe_dump` over the registry's scalar domain — printable ASCII
+ * refs/SHAs/tags/branches/URLs and `org/repo` keys. It does NOT reproduce the
+ * double-quoted style `safe_dump` uses for non-ASCII (default
+ * `allow_unicode=False`) or control characters, since neither can occur in that
+ * domain; feeding such a value would diverge from PyYAML. The conformance test
+ * guards the domain that matters.
  */
 export function yamlScalar(value) {
   const s = String(value);

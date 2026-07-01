@@ -77,6 +77,9 @@ test("yamlScalar matches PyYAML safe_dump quoting", () => {
     ["git", "git"],
     ["alpha-mono", "alpha-mono"],
     ["x:y", "x:y"],
+    ["a:b:c", "a:b:c"],
+    ["x---", "x---"],
+    ["x...", "x..."],
     ["-x", "-x"],
     ["?x", "?x"],
     ["a,b", "a,b"],
@@ -103,6 +106,13 @@ test("yamlScalar matches PyYAML safe_dump quoting", () => {
     ["1:2:3", "'1:2:3'"],
     [".inf", "'.inf'"],
     [".nan", "'.nan'"],
+    // quoted: trailing ':' and '---'/'...' document markers are block indicators
+    ["foo:", "'foo:'"],
+    ["bar:baz:", "'bar:baz:'"],
+    ["---", "'---'"],
+    ["...", "'...'"],
+    ["---x", "'---x'"],
+    ["...doc", "'...doc'"],
     // quoted: cannot be represented plain
     ["x: y", "'x: y'"],
     ["x #y", "'x #y'"],
@@ -174,6 +184,31 @@ test("selectRepositories: unknown names throw ComposeError", () => {
   );
 });
 
+test("selectRepositories: empty 'packages' container is skipped, not an error", () => {
+  // Mirrors Python's `... or {}`: a repo with `packages: []` (or `{}`) selects
+  // nothing rather than raising, so it just drops out of the result.
+  const dist = {
+    repositories: {
+      "empty-list": { url: "https://x/y", ref: { kind: "branch", value: "main" }, packages: [] },
+      "empty-map": { url: "https://x/z", ref: { kind: "branch", value: "main" }, packages: {} },
+      keep: {
+        url: "https://x/w",
+        ref: { kind: "branch", value: "main" },
+        packages: { k: { tags: [] } },
+      },
+    },
+  };
+  assert.deepEqual(
+    selectRepositories(dist).map(([key]) => key),
+    ["keep"],
+  );
+  // A non-empty non-mapping is still a hard error (matches Python).
+  assert.throws(
+    () => selectRepositories({ repositories: { r: { packages: ["oops"] } } }),
+    ComposeError,
+  );
+});
+
 test("toReposEntries: missing url or ref.value throws", () => {
   assert.throws(
     () => toReposEntries([["r", { ref: { kind: "branch", value: "main" } }, ["p"]]]),
@@ -182,6 +217,12 @@ test("toReposEntries: missing url or ref.value throws", () => {
   assert.throws(
     () => toReposEntries([["r", { url: "https://x/y", ref: { kind: "branch" } }, ["p"]]]),
     ComposeError,
+  );
+  // Empty 'ref' container coerces to {} then fails on the missing value, exactly
+  // like Python's `spec.get("ref") or {}` — not a "ref is not a mapping" error.
+  assert.throws(
+    () => toReposEntries([["r", { url: "https://x/y", ref: [] }, ["p"]]]),
+    /missing 'ref.value'/,
   );
 });
 
