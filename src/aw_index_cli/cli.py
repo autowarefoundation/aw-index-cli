@@ -169,7 +169,7 @@ def _cmd_compose(args: argparse.Namespace) -> int:
         )
     except (RegistryError, ComposeError) as exc:
         print(f"error: {exc}", file=sys.stderr)
-        return 1
+        return 2
 
     if args.stdout:
         print(text)
