@@ -10,7 +10,7 @@ The registry is **repository-keyed**: each entry is one repository with **exactl
 one `ref`** and the packages it hosts. `compose` never selects a ref by Autoware
 version; `--autoware` is header provenance only.
 
-[index]: https://github.com/autowarefoundation/autoware-index
+[index]: https://autowarefoundation.github.io/autoware-index/
 [vcs2l]: https://github.com/ros-infrastructure/vcs2l
 
 ## Install
