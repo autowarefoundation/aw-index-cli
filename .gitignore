@@ -8,3 +8,6 @@ log/
 *.egg-info/
 .venv/
 .idea/
+
+# Node (js/ tests run on Node's built-in runner; prettier caches here)
+node_modules/
