@@ -181,7 +181,7 @@ def test_compose_unknown_package_clean_error(distributions_dir, capsys):
             "--stdout",
         ]
     )
-    assert rc == 1
+    assert rc == 2
     captured = capsys.readouterr()
     assert captured.out == ""
     assert "no such package in the distribution: 'nope'" in captured.err
@@ -200,7 +200,7 @@ def test_compose_unknown_repository_clean_error(distributions_dir, capsys):
             "--stdout",
         ]
     )
-    assert rc == 1
+    assert rc == 2
     captured = capsys.readouterr()
     assert captured.out == ""
     assert "no such repository entry in the distribution: 'nope'" in captured.err
@@ -256,7 +256,7 @@ def test_compose_rejects_schema_version_1(tmp_path, capsys):
             "--stdout",
         ]
     )
-    assert rc == 1
+    assert rc == 2
     captured = capsys.readouterr()
     # No silent empty output: nothing on stdout, a clear error on stderr.
     assert captured.out == ""
@@ -283,7 +283,7 @@ def _compose_malformed(tmp_path, capsys, doc):
             "--stdout",
         ]
     )
-    assert rc == 1
+    assert rc == 2
     captured = capsys.readouterr()
     # Clean failure: nothing on stdout, a single error line, no traceback.
     assert captured.out == ""
@@ -373,7 +373,7 @@ def test_compose_explicit_output(distributions_dir, tmp_path):
     assert out.is_file()
 
 
-def test_compose_missing_file_returns_1(tmp_path, capsys):
+def test_compose_missing_file_returns_2(tmp_path, capsys):
     rc = main(
         [
             "compose",
@@ -383,7 +383,7 @@ def test_compose_missing_file_returns_1(tmp_path, capsys):
             str(tmp_path),
         ]
     )
-    assert rc == 1
+    assert rc == 2
     err = capsys.readouterr().err
     assert err.startswith("error:")
 
