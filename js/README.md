@@ -48,9 +48,12 @@ Lower-level exports (`selectRepositories`, `toReposEntries`, `provenanceHeader`,
 
 ## Consuming from the browse site
 
-The site vendors a **committed copy** at `site/compose.mjs`, pinned to a released
-tag of this repo and guarded by a CI drift-check. It is not published to npm and
-is not shipped in the Python wheel — it is consumed as a static ES module via
+The [autoware-index](https://github.com/autowarefoundation/autoware-index) browse
+site reuses this module for its "repos builder". Its GitHub Pages deploy
+**fetches the latest release's `js/compose.mjs`** and bakes it into the published
+site, so it tracks releases with no manual updates; a committed `site/compose.mjs`
+is kept only as a local/offline fallback. It is not published to npm and is not
+shipped in the Python wheel — it is consumed as a static ES module via
 `<script type="module">`.
 
 ## Tests
