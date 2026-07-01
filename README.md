@@ -1,5 +1,7 @@
 # aw-index-cli
 
+[![ci](https://github.com/autowarefoundation/aw-index-cli/actions/workflows/ci.yaml/badge.svg)](https://github.com/autowarefoundation/aw-index-cli/actions/workflows/ci.yaml)
+
 `aw-index-cli` is the consumer CLI for the [autoware-index][index] registry. It
 reads a distribution manifest (`distributions/<rosdistro>.yaml`,
 `schema_version: "2"`) and composes a [vcstool][vcstool] `.repos` file that you
