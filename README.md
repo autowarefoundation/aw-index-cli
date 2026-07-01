@@ -18,7 +18,8 @@ version; `--autoware` is header provenance only.
 With [pipx][pipx] (recommended for an isolated CLI):
 
 ```bash
-pipx install aw-index-cli
+pipx install aw-index-cli   # first install
+pipx upgrade aw-index-cli   # update to the latest release
 ```
 
 Editable, from a checkout:
