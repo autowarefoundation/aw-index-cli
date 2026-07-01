@@ -101,7 +101,7 @@ export function selectRepositories(
     const names = Object.keys(specPkgs)
       .filter((name) => {
         const pkg = specPkgs[name] || {};
-        const pkgTags = new Set((pkg && pkg.tags) || []);
+        const pkgTags = new Set(pkg.tags || []);
         const tagOk = wantedTags.size === 0 || [...pkgTags].some((t) => wantedTags.has(t));
         const pkgOk = wantedPkgs.size === 0 || wantedPkgs.has(name);
         return tagOk && pkgOk;
@@ -248,6 +248,13 @@ export function composeCommand({ rosDistro, packages = [] } = {}) {
 
 // ---------------------------------------------------------------------------
 // YAML emission — faithful to PyYAML 6.x `safe_dump(default_flow_style=False)`.
+//
+// The guards below refuse any input whose PyYAML rendering this dependency-free
+// port does not reproduce — non-ASCII/control scalars, empty or over-long
+// mapping keys, and line-folded values — throwing `ComposeError` so parity fails
+// loud rather than silently emitting bytes that differ from the Python composer.
+// None of these arise for real registry data: printable-ASCII refs/SHAs/tags/
+// URLs and short `org/repo` keys, none containing spaces.
 // ---------------------------------------------------------------------------
 
 // PyYAML's implicit resolver patterns (SafeLoader), ported verbatim with the
@@ -285,13 +292,9 @@ const LEADING_INDICATORS = new Set([
 ]);
 
 // Return the first character outside printable ASCII (0x20–0x7E), or null when
-// the whole string is printable ASCII. PyYAML's `safe_dump` renders anything
-// else with a style this dependency-free port deliberately does not reproduce:
-// non-ASCII is double-quoted with `\xNN`/`\uNNNN` escapes (default
-// `allow_unicode=False`) and control characters force a non-plain style. The
-// registry's scalar domain (refs/SHAs/tags/branches/URLs and `org/repo` keys)
-// is printable ASCII, so rather than emit bytes that would silently differ from
-// the Python composer, `yamlScalar` rejects such input (see below).
+// the whole string is printable ASCII. `yamlScalar` rejects anything else (see
+// the section note above): PyYAML would double-quote/escape it and this port
+// does not reproduce that style.
 function firstNonPrintableAscii(s) {
   for (let i = 0; i < s.length; i += 1) {
     const c = s.charCodeAt(i);
@@ -322,14 +325,8 @@ function needsPlainQuoting(s) {
  * Render one scalar as PyYAML's `safe_dump` would: plain when it is safe and
  * reloads as a string, otherwise single-quoted (with `'` doubled). This is the
  * one subtle piece — e.g. a numeric-looking tag `1.20`, or a branch `on`/`no`,
- * must be quoted so it round-trips as a string. Exported for unit testing.
- *
- * Faithful to `safe_dump` over the registry's scalar domain — printable ASCII
- * refs/SHAs/tags/branches/URLs and `org/repo` keys. It does NOT reproduce the
- * double-quoted style `safe_dump` uses for non-ASCII (default
- * `allow_unicode=False`) or control characters — but rather than silently emit
- * bytes that would differ from the Python composer, it throws `ComposeError` on
- * such input. Neither can occur in the registry's scalar domain.
+ * must be quoted so it round-trips as a string. Non-printable-ASCII input is
+ * refused (see the section note above). Exported for unit testing.
  */
 export function yamlScalar(value) {
   const s = String(value);
@@ -338,8 +335,7 @@ export function yamlScalar(value) {
     const cp = bad.codePointAt(0).toString(16).toUpperCase().padStart(2, "0");
     throw new ComposeError(
       `cannot render scalar ${JSON.stringify(s)}: character U+${cp} is outside ` +
-        `this composer's printable-ASCII domain; PyYAML would escape or requote ` +
-        `it and the output would diverge from the Python composer`,
+        `this composer's printable-ASCII domain`,
     );
   }
   if (s === "") return "''";
@@ -351,21 +347,16 @@ export function yamlScalar(value) {
 
 // Emit one `    <name>: <scalar>` value line. PyYAML `safe_dump` line-folds a
 // plain/single-quoted scalar at a space once the line passes best_width (80
-// columns); this port does not reproduce folding, so — like the other domain
-// guards — it fails loud rather than silently diverging. The refusal condition
-// (contains a space AND the line exceeds 80 columns) covers every value PyYAML
-// would fold and never refuses one it would not fold below 80 columns. Only
-// *values* can fold — block-mapping keys are always written unfolded — and a
-// real url/version (URL, git ref, SHA) never contains a space, so this never
-// fires for well-formed registry data.
+// columns); this port does not reproduce folding, so it refuses a value that
+// would fold (contains a space AND its line exceeds 80 columns). Only *values*
+// can fold — block-mapping keys are always written unfolded.
 function dumpField(name, value) {
   const line = `    ${name}: ${yamlScalar(value)}`;
   if (String(value).includes(" ") && line.length > 80) {
     throw new ComposeError(
       `${name} value ${JSON.stringify(value)} would line-fold under PyYAML ` +
-        `safe_dump (its line exceeds 80 columns and contains a space), a wrap this ` +
-        `composer does not reproduce; the output would diverge from the Python ` +
-        `composer`,
+        `safe_dump (its line exceeds 80 columns and contains a space), a wrap ` +
+        `this composer does not reproduce`,
     );
   }
   return line + "\n";
@@ -380,14 +371,12 @@ function dumpBody(entries) {
     // PyYAML emits a mapping key with the explicit `? key` / `: value` block
     // form (not inline `key:`) when the key is empty or its length reaches the
     // 128-char simple-key limit (raw length >= 123 here). This port only emits
-    // the inline form, so it refuses those keys rather than silently diverging.
-    // Real `org/repo` keys are non-empty and far shorter than 123 characters.
+    // the inline form, so it refuses those keys (see the section note above).
     if (key.length === 0 || key.length >= 123) {
       throw new ComposeError(
         `repository key ${JSON.stringify(key)} (length ${key.length}) is outside ` +
-          `this composer's inline simple-key domain; PyYAML would emit it with the ` +
-          `explicit '? key' block form and the output would diverge from the ` +
-          `Python composer`,
+          `this composer's inline simple-key domain; PyYAML would emit it with ` +
+          `the explicit '? key' block form`,
       );
     }
     out += `  ${yamlScalar(key)}:\n`;

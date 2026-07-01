@@ -18,15 +18,10 @@ conformance job in CI fails on drift.
 Byte-parity holds over the registry's scalar domain — printable ASCII refs,
 SHAs, tags, branches, URLs, and `org/repo` keys up to PyYAML's inline
 simple-key length (122 characters). Outside that domain the module **fails loud**
-rather than silently emitting bytes that would differ from the Python composer:
-`yamlScalar` throws `ComposeError` on non-ASCII or control characters (which
-`safe_dump` would double-quote/escape under the default `allow_unicode=False`),
-`renderRepos` throws on an empty repository key or one ≥ 123 characters (which
-PyYAML would emit with the explicit `? key` block form), and it throws on a
-`url`/`version` value that would line-fold (a value containing a space whose line
-passes PyYAML's 80-column `best_width`). None of these occur for real registry
-values — refs, SHAs, URLs, and `org/repo` keys contain no spaces and are far
-shorter than these limits.
+with `ComposeError` rather than emitting bytes that would differ from the Python
+composer — see the guard comments in `compose.mjs` for the exact PyYAML cases
+(non-ASCII/control scalars, empty or ≥ 123-character keys, and space-containing
+values that would line-fold). None of these occur for real registry values.
 
 Keep `VERSION` in `compose.mjs` equal to `__version__` in
 `src/aw_index_cli/__init__.py` (also asserted by the conformance test).
