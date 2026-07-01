@@ -233,6 +233,8 @@ test("composeReposFile: full document body matches PyYAML output", () => {
     toolVersion: "0.1.0",
   });
   assert.ok(out.endsWith(EXPECTED_BODY), "body must match safe_dump byte-for-byte");
+  // A single blank line separates the header from the body.
+  assert.ok(out.includes("do not edit by hand.\n\nrepositories:\n"));
   assert.equal(out.split("\n")[0], "# aw-index-cli 0.1.0");
   assert.ok(out.includes("# rosdistro: jazzy\n"));
   assert.ok(out.includes("# selected packages by repository:\n"));

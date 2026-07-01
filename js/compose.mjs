@@ -181,10 +181,11 @@ export function provenanceHeader({
 
 /**
  * Render the full `.repos` document (header comments + YAML body).
- * Mirrors `compose.render_repos`: `header.join("\n") + "\n" + body`, where the
- * body renders `{repositories: entries}` as block-style YAML whose content
- * matches `yaml.safe_dump(..., sort_keys=False, default_flow_style=False)`
- * (see `dumpBody`/`yamlScalar`).
+ * Mirrors `compose.render_repos`: `header.join("\n") + "\n\n" + body` (a blank
+ * line separates the `#` header from the body), where the body renders
+ * `{repositories: entries}` as block-style YAML whose content matches
+ * `yaml.safe_dump(..., sort_keys=False, default_flow_style=False)` (see
+ * `dumpBody`/`yamlScalar`).
  */
 export function renderRepos(
   distribution,
@@ -192,7 +193,7 @@ export function renderRepos(
 ) {
   const repositories = selectRepositories(distribution, { tags, packages, repository });
   const entries = toReposEntries(repositories);
-  return headerLines.join("\n") + "\n" + dumpBody(entries);
+  return headerLines.join("\n") + "\n\n" + dumpBody(entries);
 }
 
 /** Provenance string mirroring `registry.describe_source` for the network default. */

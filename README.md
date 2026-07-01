@@ -69,6 +69,7 @@ Example output for `compose --rosdistro jazzy --repository livox-tools`
 # selected packages by repository:
 #   livox-tools: autoware_livox_decoder, autoware_livox_tag_filter
 # Generated file — re-run 'aw-index-cli compose …' to update; do not edit by hand.
+
 repositories:
   livox-tools:
     type: git
