@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-import urllib.error
 from pathlib import Path
+import urllib.error
 from urllib.parse import quote
 from urllib.request import urlopen
 
@@ -31,17 +31,13 @@ def _fetch_text(url: str, *, timeout: float, not_found_ok: bool = False) -> str 
     except urllib.error.HTTPError as exc:
         if not_found_ok and exc.code == 404:
             return None
-        raise RegistryError(
-            f"could not fetch {url}: HTTP {exc.code} {exc.reason}"
-        ) from exc
+        raise RegistryError(f"could not fetch {url}: HTTP {exc.code} {exc.reason}") from exc
     except TimeoutError as exc:
         raise RegistryError(f"timed out fetching {url} after {timeout}s") from exc
     except urllib.error.URLError as exc:
         raise RegistryError(f"could not fetch {url}: {exc.reason}") from exc
     except UnicodeDecodeError as exc:
-        raise RegistryError(
-            f"response from {url} was not valid UTF-8: {exc}"
-        ) from exc
+        raise RegistryError(f"response from {url} was not valid UTF-8: {exc}") from exc
 
 
 def _distribution_file(path: Path, ros_distro: str) -> Path:
@@ -90,9 +86,7 @@ def load_distribution(
         raise RegistryError(f"invalid YAML for {ros_distro}: {exc}") from exc
 
     if not isinstance(parsed, dict):
-        raise RegistryError(
-            f"distribution for {ros_distro} is not a mapping"
-        )
+        raise RegistryError(f"distribution for {ros_distro} is not a mapping")
     schema_version = parsed.get("schema_version")
     if schema_version != SUPPORTED_SCHEMA_VERSION:
         raise RegistryError(
@@ -102,8 +96,7 @@ def load_distribution(
         )
     if parsed.get("ros_distro") != ros_distro:
         raise RegistryError(
-            f"ros_distro mismatch: expected {ros_distro!r}, "
-            f"got {parsed.get('ros_distro')!r}"
+            f"ros_distro mismatch: expected {ros_distro!r}, " f"got {parsed.get('ros_distro')!r}"
         )
     repositories = parsed.get("repositories")
     if repositories is not None and not isinstance(repositories, dict):

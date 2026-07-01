@@ -6,7 +6,8 @@ import json
 
 import yaml
 
-from aw_index_cli import cli, registry
+from aw_index_cli import cli
+from aw_index_cli import registry
 from aw_index_cli.cli import main
 
 _PASS = (
@@ -614,9 +615,7 @@ def test_check_ref_drift_exits_1(
     repos_file.write_text(drifted)
     monkeypatch.setattr(registry, "urlopen", history_urlopen(_all_pass_records()))
     monkeypatch.setattr(cli, "remote_sha", lambda url, ref: "s")
-    rc = main(
-        ["check", "--repos", str(repos_file), "--registry-path", str(distributions_dir)]
-    )
+    rc = main(["check", "--repos", str(repos_file), "--registry-path", str(distributions_dir)])
     assert rc == 1
     assert "registry moved" in capsys.readouterr().out
 
@@ -629,9 +628,7 @@ def test_check_rosdistro_from_header(
     monkeypatch.setattr(registry, "urlopen", history_urlopen(_all_pass_records()))
     monkeypatch.setattr(cli, "remote_sha", lambda url, ref: "s")
     # no --rosdistro: must be read from the .repos header
-    rc = main(
-        ["check", "--repos", str(repos_file), "--registry-path", str(distributions_dir)]
-    )
+    rc = main(["check", "--repos", str(repos_file), "--registry-path", str(distributions_dir)])
     assert rc == 0
 
 
@@ -706,9 +703,7 @@ def test_check_branch_drift_warns_without_strict(
     # records were swept at "OLD"; the live branch HEAD is "NEW" -> advanced
     monkeypatch.setattr(registry, "urlopen", history_urlopen(_all_pass_records(sha="OLD")))
     monkeypatch.setattr(cli, "remote_sha", lambda url, ref: "NEW")
-    rc = main(
-        ["check", "--repos", str(repos_file), "--registry-path", str(distributions_dir)]
-    )
+    rc = main(["check", "--repos", str(repos_file), "--registry-path", str(distributions_dir)])
     out = capsys.readouterr().out
     assert rc == 0  # branch advance is a warning, not a default failure
     assert "branch advanced" in out
@@ -749,9 +744,7 @@ def test_check_missing_rosdistro_exits_2(tmp_path, distributions_dir, capsys):
     repos_file.write_text(
         "repositories:\n  r:\n    type: git\n    url: https://x/r\n    version: main\n"
     )
-    rc = main(
-        ["check", "--repos", str(repos_file), "--registry-path", str(distributions_dir)]
-    )
+    rc = main(["check", "--repos", str(repos_file), "--registry-path", str(distributions_dir)])
     assert rc == 2
     assert "could not determine the rosdistro" in capsys.readouterr().err
 
@@ -769,8 +762,6 @@ def test_check_read_error_exits_2(tmp_path, distributions_dir, monkeypatch, caps
         return real_read_text(self, *args, **kwargs)
 
     monkeypatch.setattr(pathlib.Path, "read_text", boom)
-    rc = main(
-        ["check", "--repos", str(repos_file), "--registry-path", str(distributions_dir)]
-    )
+    rc = main(["check", "--repos", str(repos_file), "--registry-path", str(distributions_dir)])
     assert rc == 2
     assert "could not read" in capsys.readouterr().err

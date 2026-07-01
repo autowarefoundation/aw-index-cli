@@ -5,8 +5,8 @@ from __future__ import annotations
 import io
 import urllib.error
 
-import yaml
 import pytest
+import yaml
 
 
 class _FakeResponse:
@@ -116,15 +116,11 @@ def sample_repos_text(sample_distribution) -> str:
     CLI emits — including the ``# rosdistro:`` line and the
     ``# selected packages by repository:`` block that ``check`` parses.
     """
-    from aw_index_cli.compose import (
-        provenance_header,
-        render_repos,
-        select_repositories,
-    )
+    from aw_index_cli.compose import provenance_header
+    from aw_index_cli.compose import render_repos
+    from aw_index_cli.compose import select_repositories
 
-    selection = [
-        (key, names) for key, _spec, names in select_repositories(sample_distribution)
-    ]
+    selection = [(key, names) for key, _spec, names in select_repositories(sample_distribution)]
     header = provenance_header(
         tool_version="0.1.0",
         ros_distro="jazzy",

@@ -52,9 +52,7 @@ def select_repositories(
         spec_pkgs = (spec or {}).get("packages")
         if isinstance(spec_pkgs, dict):
             known_pkgs.update(spec_pkgs)
-    _reject_unknown(
-        "repository entry", "repository entries", wanted_repos - set(all_repos)
-    )
+    _reject_unknown("repository entry", "repository entries", wanted_repos - set(all_repos))
     _reject_unknown("package", "packages", wanted_pkgs - known_pkgs)
 
     selected = []
@@ -155,8 +153,7 @@ def provenance_header(
         for key, package_names in selection:
             lines.append(f"#   {key}: {', '.join(package_names)}")
     lines.append(
-        "# Generated file — re-run 'aw-index-cli compose …' to update; "
-        "do not edit by hand."
+        "# Generated file — re-run 'aw-index-cli compose …' to update; " "do not edit by hand."
     )
     return lines
 

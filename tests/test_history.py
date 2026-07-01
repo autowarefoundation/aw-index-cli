@@ -7,7 +7,8 @@ import urllib.error
 
 import pytest
 
-from aw_index_cli import history, registry
+from aw_index_cli import history
+from aw_index_cli import registry
 from aw_index_cli.history import latest_record
 from aw_index_cli.registry import RegistryError
 

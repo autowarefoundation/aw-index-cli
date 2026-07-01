@@ -5,15 +5,13 @@ from __future__ import annotations
 import io
 import urllib.error
 
-import yaml
 import pytest
+import yaml
 
 from aw_index_cli import registry
-from aw_index_cli.registry import (
-    RegistryError,
-    describe_source,
-    load_distribution,
-)
+from aw_index_cli.registry import RegistryError
+from aw_index_cli.registry import describe_source
+from aw_index_cli.registry import load_distribution
 
 
 def test_load_from_directory(distributions_dir, sample_distribution):
@@ -42,9 +40,7 @@ def test_ros_distro_mismatch_raises(tmp_path):
     dist_dir = tmp_path / "distributions"
     dist_dir.mkdir()
     (dist_dir / "jazzy.yaml").write_text(
-        yaml.safe_dump(
-            {"schema_version": "2", "ros_distro": "humble", "repositories": {}}
-        ),
+        yaml.safe_dump({"schema_version": "2", "ros_distro": "humble", "repositories": {}}),
         encoding="utf-8",
     )
     with pytest.raises(RegistryError, match="mismatch"):
@@ -54,9 +50,7 @@ def test_ros_distro_mismatch_raises(tmp_path):
 def test_unsupported_schema_version_raises(tmp_path):
     f = tmp_path / "jazzy.yaml"
     f.write_text(
-        yaml.safe_dump(
-            {"schema_version": "1", "ros_distro": "jazzy", "packages": {}}
-        ),
+        yaml.safe_dump({"schema_version": "1", "ros_distro": "jazzy", "packages": {}}),
         encoding="utf-8",
     )
     with pytest.raises(RegistryError) as excinfo:
@@ -102,9 +96,7 @@ def test_repositories_list_raises(tmp_path):
         ),
         encoding="utf-8",
     )
-    with pytest.raises(
-        RegistryError, match="'repositories' must be a mapping"
-    ) as excinfo:
+    with pytest.raises(RegistryError, match="'repositories' must be a mapping") as excinfo:
         load_distribution("jazzy", path=f)
     assert "got list" in str(excinfo.value)
 
@@ -121,9 +113,7 @@ def test_repository_entry_string_raises(tmp_path):
         ),
         encoding="utf-8",
     )
-    with pytest.raises(
-        RegistryError, match="repository 'alpha-mono' must be a mapping"
-    ) as excinfo:
+    with pytest.raises(RegistryError, match="repository 'alpha-mono' must be a mapping") as excinfo:
         load_distribution("jazzy", path=f)
     assert "got str" in str(excinfo.value)
 
@@ -134,9 +124,7 @@ def test_repository_entry_null_raises(tmp_path):
         "schema_version: '2'\nros_distro: jazzy\nrepositories:\n  bare-repo:\n",
         encoding="utf-8",
     )
-    with pytest.raises(
-        RegistryError, match="repository 'bare-repo' must be a mapping"
-    ):
+    with pytest.raises(RegistryError, match="repository 'bare-repo' must be a mapping"):
         load_distribution("jazzy", path=f)
 
 
@@ -247,15 +235,11 @@ def test_select_among_two_distros(tmp_path):
     dist_dir = tmp_path / "distributions"
     dist_dir.mkdir()
     (dist_dir / "jazzy.yaml").write_text(
-        yaml.safe_dump(
-            {"schema_version": "2", "ros_distro": "jazzy", "repositories": {}}
-        ),
+        yaml.safe_dump({"schema_version": "2", "ros_distro": "jazzy", "repositories": {}}),
         encoding="utf-8",
     )
     (dist_dir / "humble.yaml").write_text(
-        yaml.safe_dump(
-            {"schema_version": "2", "ros_distro": "humble", "repositories": {}}
-        ),
+        yaml.safe_dump({"schema_version": "2", "ros_distro": "humble", "repositories": {}}),
         encoding="utf-8",
     )
     assert load_distribution("jazzy", path=tmp_path)["ros_distro"] == "jazzy"
@@ -266,9 +250,7 @@ def test_absent_distro_raises_not_found(tmp_path):
     dist_dir = tmp_path / "distributions"
     dist_dir.mkdir()
     (dist_dir / "jazzy.yaml").write_text(
-        yaml.safe_dump(
-            {"schema_version": "2", "ros_distro": "jazzy", "repositories": {}}
-        ),
+        yaml.safe_dump({"schema_version": "2", "ros_distro": "jazzy", "repositories": {}}),
         encoding="utf-8",
     )
     with pytest.raises(RegistryError, match="not found"):

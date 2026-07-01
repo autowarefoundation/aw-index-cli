@@ -5,12 +5,13 @@ from __future__ import annotations
 import json
 from urllib.parse import quote
 
-from .registry import DEFAULT_REPO, RegistryError, _fetch_text
+from .registry import DEFAULT_REPO
+from .registry import RegistryError
+from .registry import _fetch_text
 
 DEFAULT_DATA_REF = "data"
 HISTORY_URL = (
-    "https://raw.githubusercontent.com/{repo}/{data_ref}"
-    "/history/{ros_distro}/{package}.ndjson"
+    "https://raw.githubusercontent.com/{repo}/{data_ref}" "/history/{ros_distro}/{package}.ndjson"
 )
 
 
@@ -50,7 +51,5 @@ def latest_record(
             f"invalid history record for {package!r} (last line of {url}): {exc}"
         ) from exc
     if not isinstance(record, dict):
-        raise RegistryError(
-            f"history record for {package!r} is not a JSON object"
-        )
+        raise RegistryError(f"history record for {package!r} is not a JSON object")
     return record
