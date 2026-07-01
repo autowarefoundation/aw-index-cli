@@ -7,8 +7,7 @@ reads a distribution manifest (`distributions/<rosdistro>.yaml`) and composes a
 [vcs2l][vcs2l] `.repos` file you can `vcs import` into a workspace.
 
 The registry is **repository-keyed**: each entry is one repository with **exactly
-one `ref`** and the packages it hosts. `compose` never selects a ref by Autoware
-version; `--autoware` is header provenance only.
+one `ref`** and the packages it hosts.
 
 [index]: https://autowarefoundation.github.io/autoware-index/
 [vcs2l]: https://github.com/ros-infrastructure/vcs2l
@@ -24,11 +23,16 @@ pipx upgrade aw-index-cli   # update to the latest release
 
 [pipx]: https://pipx.pypa.io/
 
+## Commands
+
+- `compose` — render a `.repos` file from a distribution.
+- `check` — gate a composed `.repos` against the registry and sweep history.
+- `list` — list registry packages with their latest validation status.
+
 ## `compose`
 
-Render a `.repos` file from a distribution. Select what you need by package,
-repository, or tag — the distribution is fetched from GitHub by default, so no
-registry checkout is required.
+Select what you need by package, repository, or tag — the distribution is
+fetched from GitHub by default, so no registry checkout is required.
 
 ```bash
 # Recommended: compose just the packages you want.
@@ -52,25 +56,11 @@ aw-index-cli compose --rosdistro jazzy \
 > **entire** distribution — supported, but usually you want to name what you
 > consume.
 
-Less common sources — a local registry checkout, or a fork / specific git ref:
-
-```bash
-# Read from a local registry checkout instead of GitHub.
-aw-index-cli compose --rosdistro jazzy \
-  --packages autoware_livox_tag_filter \
-  --registry-path /path/to/autoware-index
-
-# Fetch the distribution from a fork at a specific branch/tag/sha.
-aw-index-cli compose --rosdistro jazzy \
-  --packages autoware_livox_tag_filter \
-  --registry-repo me/autoware-index-fork --registry-ref dev
-```
-
 Example output for `compose --rosdistro jazzy --repository livox-tools`
 (a monorepo entry hosting two registered packages):
 
 ```yaml
-# aw-index-cli 0.1.0
+# aw-index-cli 0.3.0
 # source: autowarefoundation/autoware-index@main
 # rosdistro: jazzy
 # tags: all
@@ -86,22 +76,35 @@ repositories:
     version: main
 ```
 
-Entries are pure vcs2l — `type`/`url`/`version` only. Selected package names
-live in the `# selected packages by repository:` header comment, not the YAML
-body.
+Less common sources — a local registry checkout, or a fork / specific git ref:
+
+```bash
+# Read from a local registry checkout instead of GitHub.
+aw-index-cli compose --rosdistro jazzy \
+  --packages autoware_livox_tag_filter \
+  --registry-path /path/to/autoware-index
+
+# Fetch the distribution from a fork at a specific branch/tag/sha.
+aw-index-cli compose --rosdistro jazzy \
+  --packages autoware_livox_tag_filter \
+  --registry-repo me/autoware-index-fork --registry-ref dev
+```
 
 ### How entries are composed
 
-- **Entry keys are registry repository keys**, not URL basenames — also the
-  directory `vcs import` clones into.
+- **Entry keys are registry repository keys** — the directory `vcs import`
+  clones into.
 - **Filters are ANDed.** An unknown `--packages` name or `--repository` key is a
   hard error, never a silent empty result.
 - **A monorepo collapses to one entry** at its single `ref`, however many of its
   packages match.
+- **Each entry is pure vcs2l** — `type`/`url`/`version` only. The selected
+  package names live in the `# selected packages by repository:` header comment,
+  not the YAML body.
 
-> [!CAUTION]
+> [!NOTE]
 > A clone may include unregistered sibling packages the index makes no claims
-> about. To build only what you asked for, pass the header-comment names to colcon:
+> about. To build only the packages you selected, pass their names to colcon:
 
 ```bash
 colcon build --packages-up-to autoware_livox_tag_filter  # names from the header comment
@@ -110,8 +113,7 @@ colcon build --packages-up-to autoware_livox_tag_filter  # names from the header
 ### Key options
 
 - `--rosdistro` (required): ROS distribution, e.g. `jazzy`.
-- `--packages` / `--repository` / `--tags`: selection filters, ANDed; unknown
-  names error.
+- `--packages` / `--repository` / `--tags`: selection filters.
 - `--autoware`: informational only — recorded in the header, not a ref selector.
 - `--registry-path`: read a local file or registry directory instead of GitHub.
 - `--registry-repo` / `--registry-ref`: GitHub source repo (default
@@ -121,14 +123,8 @@ colcon build --packages-up-to autoware_livox_tag_filter  # names from the header
 - `--stdout`: print instead of writing a file.
 - `--no-timestamp`: omit `generated_at` for byte-identical output.
 
-## Commands
-
-- `compose` — render a `.repos` file from a distribution.
-- `check` — gate a composed `.repos` against the registry and sweep history.
-- `list` — list registry packages with their latest validation status.
-
 > [!IMPORTANT]
-> There is deliberately no `import` command — pipe `compose` straight into vcs:
+> There is no `import` command — pipe `compose` straight into vcs:
 
 ```bash
 aw-index-cli compose --rosdistro jazzy --packages autoware_livox_tag_filter --stdout \
@@ -138,7 +134,8 @@ aw-index-cli compose --rosdistro jazzy --packages autoware_livox_tag_filter --st
 ## `check`
 
 Verify a composed `.repos` is still current: every repository at the registry's
-ref, each package passing its latest sweep. Intended as a **CI gate** after
+ref, and each package passing its latest **sweep** — the registry's periodic
+build/test against the current Autoware release. Intended as a **CI gate** after
 `vcs import`.
 
 ```bash
@@ -163,8 +160,8 @@ Options mirror `compose`, plus `--data-ref` (default `data`), `--strict`, and
 `--format {table,json}`.
 
 > [!NOTE]
-> The branch-drift check shells out to `git ls-remote`; if `git` is absent it is
-> skipped and everything else still runs.
+> Without `git` on PATH the branch-drift check is silently skipped, so a green
+> check isn't a complete guarantee.
 
 ## `list`
 
