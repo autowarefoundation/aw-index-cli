@@ -10,7 +10,7 @@ readme = "README.md"
 requires-python = ">=3.10"
 license = "Apache-2.0"
 authors = [{ name = "Mete Fatih Cırıt", email = "mfc@autoware.org" }]
-keywords = ["autoware", "ros", "ros2", "vcstool", "registry"]
+keywords = ["autoware", "ros", "ros2", "vcstool", "vcs2l", "registry"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Environment :: Console",

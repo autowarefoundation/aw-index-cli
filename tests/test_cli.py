@@ -122,7 +122,7 @@ def test_compose_monorepo_partial_selection(distributions_dir, capsys):
     out = capsys.readouterr().out
     parsed = yaml.safe_load(out)
     assert list(parsed["repositories"]) == ["alpha-mono"]
-    # pure vcstool entry; the selected package is named only in the header comment
+    # pure vcs2l entry; the selected package is named only in the header comment
     assert "packages" not in parsed["repositories"]["alpha-mono"]
     assert "#   alpha-mono: alpha_sensing" in out
 

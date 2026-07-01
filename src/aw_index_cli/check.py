@@ -32,7 +32,7 @@ class CheckError(Exception):
 
 
 def parse_repos(text: str) -> dict:
-    """Parse a vcstool ``.repos`` document → ``{repo_key: {url, version}}``."""
+    """Parse a vcs2l ``.repos`` document → ``{repo_key: {url, version}}``."""
     try:
         doc = yaml.safe_load(text)
     except yaml.YAMLError as exc:
