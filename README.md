@@ -22,12 +22,6 @@ pipx install aw-index-cli   # first install
 pipx upgrade aw-index-cli   # update to the latest release
 ```
 
-Editable, from a checkout:
-
-```bash
-python3 -m pip install -e ".[dev]"
-```
-
 [pipx]: https://pipx.pypa.io/
 
 ## `compose`
