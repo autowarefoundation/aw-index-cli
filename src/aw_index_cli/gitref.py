@@ -9,7 +9,7 @@ def remote_sha(url: str, ref_value: str, *, timeout: float = 10) -> str | None:
     """Return the commit SHA that ``ref_value`` resolves to in remote ``url``.
 
     Uses ``git ls-remote``. Best-effort: returns ``None`` if git is missing, the
-    command fails or times out, or the ref is not found — it never raises, so a
+    command fails or times out, or the ref is not found. It never raises, so a
     caller can treat an unavailable answer as "unknown".
     """
     try:

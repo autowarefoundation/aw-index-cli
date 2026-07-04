@@ -219,7 +219,7 @@ test("toReposEntries: missing url or ref.value throws", () => {
     ComposeError,
   );
   // Empty 'ref' container coerces to {} then fails on the missing value, exactly
-  // like Python's `spec.get("ref") or {}` — not a "ref is not a mapping" error.
+  // like Python's `spec.get("ref") or {}`, not a "ref is not a mapping" error.
   assert.throws(
     () => toReposEntries([["r", { url: "https://x/y", ref: [] }, ["p"]]]),
     /missing 'ref.value'/,

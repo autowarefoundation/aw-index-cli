@@ -1,6 +1,6 @@
 """The ``list`` verb: enumerate registry packages annotated with sweep status.
 
-Pure logic — the validation-record read is injected so this is unit-testable.
+Pure logic: the validation-record read is injected so this is unit-testable.
 """
 
 from __future__ import annotations
@@ -34,8 +34,8 @@ def evaluate(
 
     ``selection`` is the ``(key, spec, names)`` output of
     :func:`compose.select_repositories`. Each row's ``problem`` flag is ``True``
-    when the package's latest validation is ``fail`` or there is no record — used
-    by ``--strict`` to decide the exit code. ``fetch_record`` failures are caught
+    when the package's latest validation is ``fail`` or there is no record; it is
+    used by ``--strict`` to decide the exit code. ``fetch_record`` failures are caught
     per package and shown as an unknown status.
     """
     rows: list[dict] = []
@@ -50,9 +50,9 @@ def evaluate(
             except RegistryError:
                 record = None
             if record is None:
-                status, autoware, validated = "—", "", ""
+                status, autoware, validated = "-", "", ""
             else:
-                status = record.get("status") or "—"
+                status = record.get("status") or "-"
                 autoware = record.get("autoware_version") or ""
                 validated = _date(record.get("at"))
             rows.append(

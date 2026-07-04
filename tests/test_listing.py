@@ -34,7 +34,7 @@ def test_list_rows_have_status_and_meta(sample_distribution):
     assert "sensing" in by_pkg["alpha_sensing"]["tags"]
     assert by_pkg["alpha_sensing"]["validated"] == "2026-06-27"
     # no record → unknown, flagged as a problem (for --strict)
-    assert by_pkg["mid_pkg"]["status"] == "—"
+    assert by_pkg["mid_pkg"]["status"] == "-"
     assert by_pkg["mid_pkg"]["problem"]
 
 
@@ -48,7 +48,7 @@ def test_list_fail_is_problem(sample_distribution):
 def test_list_fetch_failure_is_unknown(sample_distribution):
     selection = select_repositories(sample_distribution, repository=["mid-repo"])
     rows = evaluate(selection, fetch_record=_fetch({"mid_pkg": "__raise__"}))
-    assert rows[0]["status"] == "—"
+    assert rows[0]["status"] == "-"
     assert rows[0]["problem"]
 
 

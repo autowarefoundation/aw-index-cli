@@ -25,13 +25,13 @@ pipx upgrade aw-index-cli   # update to the latest release
 
 ## Commands
 
-- `compose` — render a `.repos` file from a distribution.
-- `check` — gate a composed `.repos` against the registry and sweep history.
-- `list` — list registry packages with their latest validation status.
+- `compose`: render a `.repos` file from a distribution.
+- `check`: gate a composed `.repos` against the registry and sweep history.
+- `list`: list registry packages with their latest validation status.
 
 ## `compose`
 
-Select what you need by package, repository, or tag — the distribution is
+Select what you need by package, repository, or tag. The distribution is
 fetched from GitHub by default, so no registry checkout is required.
 
 ```bash
@@ -53,8 +53,8 @@ aw-index-cli compose --rosdistro jazzy \
 
 > [!TIP]
 > Omitting all of `--packages`, `--repository`, and `--tags` composes the
-> **entire** distribution — supported, but usually you want to name what you
-> consume.
+> **entire** distribution. That is supported, but usually you want to name what
+> you consume.
 
 Example output for `compose --rosdistro jazzy --repository livox-tools`
 (a monorepo entry hosting two registered packages):
@@ -68,7 +68,7 @@ Example output for `compose --rosdistro jazzy --repository livox-tools`
 # generated_at: 2026-06-11T12:00:00+00:00
 # selected packages by repository:
 #   livox-tools: autoware_livox_decoder, autoware_livox_tag_filter
-# Generated file — re-run 'aw-index-cli compose …' to update; do not edit by hand.
+# Generated file. Re-run 'aw-index-cli compose …' to update; do not edit by hand.
 
 repositories:
   livox-tools:
@@ -77,7 +77,7 @@ repositories:
     version: main
 ```
 
-Less common sources — a local registry checkout, or a fork / specific git ref:
+Less common sources are a local registry checkout, or a fork / specific git ref:
 
 ```bash
 # Read from a local registry checkout instead of GitHub.
@@ -93,13 +93,13 @@ aw-index-cli compose --rosdistro jazzy \
 
 ### How entries are composed
 
-- **Entry keys are registry repository keys** — the directory `vcs import`
+- **Entry keys are registry repository keys**, the directory `vcs import`
   clones into.
 - **Filters are ANDed.** An unknown `--packages` name or `--repository` key is a
   hard error, never a silent empty result.
 - **A monorepo collapses to one entry** at its single `ref`, however many of its
   packages match.
-- **Each entry is pure vcs2l** — `type`/`url`/`version` only. The selected
+- **Each entry is pure vcs2l**: `type`/`url`/`version` only. The selected
   package names live in the `# selected packages by repository:` header comment,
   not the YAML body.
 
@@ -115,7 +115,7 @@ colcon build --packages-up-to autoware_livox_tag_filter  # names from the header
 
 - `--rosdistro` (required): ROS distribution, e.g. `jazzy`.
 - `--packages` / `--repository` / `--tags`: selection filters.
-- `--autoware`: informational only — recorded in the header, not a ref selector.
+- `--autoware`: informational only; recorded in the header, not a ref selector.
 - `--registry-path`: read a local file or registry directory instead of GitHub.
 - `--registry-repo` / `--registry-ref`: GitHub source repo (default
   `autowarefoundation/autoware-index`) and git ref (default `main`).
@@ -125,7 +125,7 @@ colcon build --packages-up-to autoware_livox_tag_filter  # names from the header
 - `--no-timestamp`: omit `generated_at` for byte-identical output.
 
 > [!IMPORTANT]
-> There is no `import` command — pipe `compose` straight into vcs:
+> There is no `import` command; pipe `compose` straight into vcs:
 
 ```bash
 aw-index-cli compose --rosdistro jazzy --packages autoware_livox_tag_filter --stdout \
@@ -135,7 +135,7 @@ aw-index-cli compose --rosdistro jazzy --packages autoware_livox_tag_filter --st
 ## `check`
 
 Verify a composed `.repos` is still current: every repository at the registry's
-ref, and each package passing its latest **sweep** — the registry's periodic
+ref, and each package passing its latest **sweep**, the registry's periodic
 build/test against the current Autoware release. Intended as a **CI gate** after
 `vcs import`.
 
@@ -149,13 +149,13 @@ aw-index-cli check --repos repositories/autoware-index.repos --rosdistro jazzy
 ```
 
 Per repository it reports ref drift, removal from the registry, each package's
-latest status (`pass`/`fail`/`—`) and the Autoware version tested, and — for
-`branch` refs — whether the branch advanced past the last sweep.
+latest status (`pass`/`fail`/`-`) and the Autoware version tested, and, for
+`branch` refs, whether the branch advanced past the last sweep.
 
-- **Exit `0`** — all pass, no drift.
-- **Exit `1`** — any failing validation, ref drift, or removed package (with
+- **Exit `0`**: all pass, no drift.
+- **Exit `1`**: any failing validation, ref drift, or removed package (with
   `--strict`, also unvalidated packages or a branch that advanced since the sweep).
-- **Exit `2`** — could not run (bad/missing `.repos`, registry load error).
+- **Exit `2`**: could not run (bad/missing `.repos`, registry load error).
 
 Options mirror `compose`, plus `--data-ref` (default `data`), `--strict`, and
 `--format {table,json}`.
@@ -166,7 +166,7 @@ Options mirror `compose`, plus `--data-ref` (default `data`), `--strict`, and
 
 ## `list`
 
-Enumerate the packages registered for a distro with their latest sweep status —
+Enumerate the packages registered for a distro with their latest sweep status:
 discovery plus a health readout, without composing anything.
 
 ```bash

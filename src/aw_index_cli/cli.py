@@ -74,7 +74,7 @@ def _build_parser() -> argparse.ArgumentParser:
     compose.add_argument(
         "--autoware",
         help=(
-            "informational only — recorded in the header; the registry tracks "
+            "informational only, recorded in the header; the registry tracks "
             "one ref per repository and does not resolve by Autoware version"
         ),
     )

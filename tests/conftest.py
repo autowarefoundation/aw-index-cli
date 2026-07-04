@@ -113,7 +113,7 @@ def sample_repos_text(sample_distribution) -> str:
     """Return a real composed ``.repos`` for ``sample_distribution`` (header + body).
 
     Generated through the actual compose functions so it always matches what the
-    CLI emits — including the ``# rosdistro:`` line and the
+    CLI emits, including the ``# rosdistro:`` line and the
     ``# selected packages by repository:`` block that ``check`` parses.
     """
     from aw_index_cli.compose import provenance_header
