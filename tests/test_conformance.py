@@ -2,9 +2,10 @@
 
 The browse site reuses ``js/compose.mjs`` to build ``.repos`` files; this test is
 the guarantee that the JS port cannot silently diverge from the reference Python
-implementation. It runs both over identical inputs and asserts identical content
-— same parsed YAML body and same ``#`` header lines — while allowing byte-level
-formatting (scalar quoting, line wrapping) to differ, since it reparses the same.
+implementation. It runs both over identical inputs and asserts identical
+content (same parsed YAML body and same ``#`` header lines) while allowing
+byte-level formatting (scalar quoting, line wrapping) to differ, since it
+reparses the same.
 
 Requires ``node`` on PATH (skipped otherwise); kept out of the pure-offline unit
 suite's guarantees but runs in CI's dedicated conformance job.
@@ -130,8 +131,8 @@ def _assert_same_content(js: str, py: str) -> None:
 
     Content is the parsed YAML body plus the ``#`` provenance header lines
     (comments are invisible to the parser, so they are compared separately).
-    Byte-level formatting — scalar quoting, line folding, the explicit ``? key``
-    form for long keys — may differ; it reparses to the same content.
+    Byte-level formatting (scalar quoting, line folding, the explicit ``? key``
+    form for long keys) may differ; it reparses to the same content.
     """
     assert yaml.safe_load(js) == yaml.safe_load(py)
     js_header = [line for line in js.splitlines() if line.startswith("#")]
@@ -201,7 +202,7 @@ def _single_repo_dist(*, key: str, ref_value: str) -> dict:
 # exercised "1.20"/"on"; this drives the whole resolver-sensitive set end-to-end.
 # This is the load-bearing content check: if a RESOLVERS regex in compose.mjs
 # ever drifts from the installed PyYAML, one side leaves a scalar plain and it
-# reloads as the wrong type — a *content* difference the assertion catches here
+# reloads as the wrong type, a *content* difference the assertion catches here
 # rather than in production.
 RESOLVER_BOUNDARY_SCALARS = [
     "no",
@@ -254,7 +255,7 @@ def test_js_matches_python_resolver_boundary(scalar):
 def test_js_matches_python_formatting_may_differ(key, ref_value):
     # Inputs where PyYAML and the JS port emit *different bytes* (line folding,
     # quoting, the explicit `? key` form, non-ASCII escaping) yet parse to the
-    # same content — exactly what the content contract allows and the old
+    # same content: exactly what the content contract allows and the old
     # byte-for-byte contract forbade.
     dist = _single_repo_dist(key=key, ref_value=ref_value)
     _assert_same_content(_js_compose(dist, BASE), _py_compose(dist, BASE))

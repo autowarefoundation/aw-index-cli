@@ -1,6 +1,6 @@
 """The ``check`` verb: gate a composed ``.repos`` against the registry + history.
 
-Pure logic — the network reads (validation records, live branch SHA) are passed in
+Pure logic: the network reads (validation records, live branch SHA) are passed in
 as callables so the evaluation is unit-testable without I/O.
 """
 
@@ -87,8 +87,8 @@ def evaluate(
 
     Returns one row dict per checked package (or one per removed repo). Each row
     carries a boolean ``problem`` flag: ``True`` for a failing validation, a ref
-    drift (registry moved off your pin), or a removed repo; and — only when
-    ``strict`` — also for an unvalidated package or a branch that advanced past the
+    drift (registry moved off your pin), or a removed repo; and, only when
+    ``strict``, also for an unvalidated package or a branch that advanced past the
     last swept SHA. ``fetch_record`` may raise :class:`RegistryError`; it is caught
     per package and surfaced as an unknown status rather than aborting the report.
     """
@@ -101,9 +101,9 @@ def evaluate(
             rows.append(
                 {
                     "package": key,
-                    "status": "—",
+                    "status": "-",
                     "autoware": "",
-                    "ref": your_ref or "—",
+                    "ref": your_ref or "-",
                     "validated": "",
                     "note": "removed from registry",
                     "problem": True,
@@ -116,7 +116,7 @@ def evaluate(
         ref_kind = ref.get("kind")
         url = spec.get("url") or ""
         ref_drift = bool(reg_ref) and your_ref != reg_ref
-        ref_display = f"{your_ref} → {reg_ref}" if ref_drift else (your_ref or "—")
+        ref_display = f"{your_ref} → {reg_ref}" if ref_drift else (your_ref or "-")
 
         packages = selected_by_key.get(key) or sorted(spec.get("packages") or {})
 
@@ -139,12 +139,12 @@ def evaluate(
                 fetch_failed = True
 
             if record is None:
-                status, autoware, validated = "—", "", ""
+                status, autoware, validated = "-", "", ""
                 notes.append("status fetch failed" if fetch_failed else "unvalidated")
                 if strict:
                     problem = True
             else:
-                status = record.get("status") or "—"
+                status = record.get("status") or "-"
                 autoware = record.get("autoware_version") or ""
                 validated = _date(record.get("at"))
                 if status == "fail":

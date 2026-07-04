@@ -30,5 +30,5 @@ pre-commit run --all-files   # or run against the whole repo on demand
 
 - Write commit messages and PR titles as [Conventional Commits](https://www.conventionalcommits.org/)
   (e.g. `feat(compose): …`, `fix(cli): …`, `docs: …`).
-- Sign off every commit for the [DCO](https://developercertificate.org/) — add a
-  `Signed-off-by` trailer with `git commit -s`.
+- Sign off every commit for the [DCO](https://developercertificate.org/) by
+  adding a `Signed-off-by` trailer with `git commit -s`.

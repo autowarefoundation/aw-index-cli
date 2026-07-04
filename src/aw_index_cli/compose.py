@@ -29,9 +29,9 @@ def select_repositories(
     Three optional filters narrow the selection and are ANDed together; omit
     all of them to select the whole distribution:
 
-    * ``tags`` — keep packages whose own ``tags`` intersect these.
-    * ``packages`` — keep packages whose name is in this list.
-    * ``repository`` — keep only these repository entries (by registry key).
+    * ``tags``: keep packages whose own ``tags`` intersect these.
+    * ``packages``: keep packages whose name is in this list.
+    * ``repository``: keep only these repository entries (by registry key).
 
     A repository is selected when at least one of its packages survives every
     given filter; its ``selected_packages`` names are sorted. An explicit
@@ -81,7 +81,7 @@ def to_repos_entries(repositories: list[tuple[str, dict, list[str]]]) -> dict:
 
     The entry key is the registry repository key, so packages from one
     monorepo collapse into a single clone. Each entry carries exactly
-    vcs2l's ``type``/``url``/``version`` and nothing else — the format
+    vcs2l's ``type``/``url``/``version`` and nothing else; the format
     defines no other per-entry fields. The selected registered package names
     are recorded in the provenance header comments (see
     :func:`provenance_header`), not in the YAML body. Raises
@@ -143,7 +143,7 @@ def provenance_header(
     if autoware is not None:
         lines.append(
             f"# autoware: {autoware} "
-            "(informational only — not a ref selector; the registry tracks "
+            "(informational only, not a ref selector; the registry tracks "
             "one ref per repository)"
         )
     if generated_at is not None:
@@ -153,7 +153,7 @@ def provenance_header(
         for key, package_names in selection:
             lines.append(f"#   {key}: {', '.join(package_names)}")
     lines.append(
-        "# Generated file — re-run 'aw-index-cli compose …' to update; " "do not edit by hand."
+        "# Generated file. Re-run 'aw-index-cli compose …' to update; " "do not edit by hand."
     )
     return lines
 

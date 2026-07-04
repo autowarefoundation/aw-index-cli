@@ -22,8 +22,8 @@ class RegistryError(Exception):
 def _fetch_text(url: str, *, timeout: float, not_found_ok: bool = False) -> str | None:
     """Fetch ``url`` and decode UTF-8, mapping failures to :class:`RegistryError`.
 
-    When ``not_found_ok`` is true an HTTP 404 returns ``None`` instead of raising
-    — used to treat a missing per-package history file as "no records yet".
+    When ``not_found_ok`` is true an HTTP 404 returns ``None`` instead of
+    raising, which treats a missing per-package history file as "no records yet".
     """
     try:
         with urlopen(url, timeout=timeout) as response:

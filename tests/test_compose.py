@@ -215,7 +215,7 @@ def test_to_repos_entries_partial_selection_emits_pure_entry():
         ]
     )
     # The entry is emitted even though only one of the repo's packages was
-    # selected, and it is a pure vcs2l entry — no packages field.
+    # selected, and it is a pure vcs2l entry with no packages field.
     assert set(entries["mono"]) == {"type", "url", "version"}
 
 
@@ -407,7 +407,7 @@ def test_render_repos_tag_filter(sample_distribution):
     text = render_repos(sample_distribution, tags=["planning"], header_lines=header)
     parsed = yaml.safe_load(text)
     assert list(parsed["repositories"]) == ["mid-repo"]
-    # pure vcs2l entry — no packages field in the body
+    # pure vcs2l entry: no packages field in the body
     assert "packages" not in parsed["repositories"]["mid-repo"]
 
 

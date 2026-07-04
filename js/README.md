@@ -1,7 +1,7 @@
-# `js/` — browser-reusable composition
+# `js/`: browser-reusable composition
 
 `compose.mjs` is a dependency-free ES module that reimplements aw-index-cli's
-registry → vcs2l `.repos` composition for JavaScript consumers — primarily the
+registry → vcs2l `.repos` composition for JavaScript consumers, primarily the
 [autoware-index](https://github.com/autowarefoundation/autoware-index) browse
 site's "repos builder", which reuses it so the site and the CLI never fork the
 transform.
@@ -11,16 +11,16 @@ transform.
 The Python package (`src/aw_index_cli/compose.py`) remains the reference.
 `compose.mjs` mirrors it 1:1 and is pinned to it by
 [`tests/test_conformance.py`](../tests/test_conformance.py), which runs both over
-shared fixtures and asserts identical `.repos` **content** — same parsed YAML body
+shared fixtures and asserts identical `.repos` **content**: same parsed YAML body
 and same `#` header lines. If you change one, change the other; the conformance
 job in CI fails on drift.
 
 The contract is content, not bytes: `vcs import` parses the `.repos` file, so what
 must match is the parsed result, not the exact formatting. Both implementations
 must therefore quote a scalar that would otherwise reload as a non-string (a tag
-`1.20`, a branch `on`) — that is a content requirement. Pure formatting that PyYAML
-does differently — escaping non-ASCII, folding long lines, the explicit `? key`
-form for long keys — is allowed to differ, since it reparses to the same content.
+`1.20`, a branch `on`); that is a content requirement. Pure formatting that PyYAML
+does differently (escaping non-ASCII, folding long lines, the explicit `? key`
+form for long keys) is allowed to differ, since it reparses to the same content.
 
 Keep `VERSION` in `compose.mjs` equal to `__version__` in
 `src/aw_index_cli/__init__.py` (also asserted by the conformance test).
@@ -53,7 +53,7 @@ site reuses this module for its "repos builder". Its GitHub Pages deploy
 **fetches the latest release's `js/compose.mjs`** and bakes it into the published
 site, so it tracks releases with no manual updates; a committed `site/compose.mjs`
 is kept only as a local/offline fallback. It is not published to npm and is not
-shipped in the Python wheel — it is consumed as a static ES module via
+shipped in the Python wheel; it is consumed as a static ES module via
 `<script type="module">`.
 
 ## Tests
