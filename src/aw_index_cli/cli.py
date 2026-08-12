@@ -30,8 +30,8 @@ from .registry import DEFAULT_REF
 from .registry import DEFAULT_REPO
 from .registry import RegistryError
 from .registry import describe_source
-from .registry import load_tag_aliases
 from .registry import load_distribution
+from .registry import load_tag_aliases
 from .report import render_json
 from .report import render_table
 from .workspace import discover_repos_files
