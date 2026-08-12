@@ -142,8 +142,7 @@ def test_compose_unknown_reference_design_warns_and_exits_zero(distributions_dir
     assert rc == 0
     captured = capsys.readouterr()
     assert (
-        "warning: no repository in the distribution carries reference design 'lsa'"
-        in captured.err
+        "warning: no repository in the distribution carries reference design 'lsa'" in captured.err
     )
     assert yaml.safe_load(captured.out)["repositories"] == {}
 
