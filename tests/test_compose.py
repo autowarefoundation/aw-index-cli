@@ -10,6 +10,7 @@ from aw_index_cli.compose import provenance_header
 from aw_index_cli.compose import render_repos
 from aw_index_cli.compose import select_repositories
 from aw_index_cli.compose import to_repos_entries
+from aw_index_cli.compose import unknown_tags
 
 
 def test_select_no_tags_returns_all_sorted(sample_distribution):
@@ -167,6 +168,23 @@ def test_select_existing_package_excluded_by_other_filter_is_not_unknown(
         )
         == []
     )
+
+
+def test_unknown_tags_empty_without_filter(sample_distribution):
+    assert unknown_tags(sample_distribution, None) == []
+    assert unknown_tags(sample_distribution, []) == []
+
+
+def test_unknown_tags_all_carried(sample_distribution):
+    assert unknown_tags(sample_distribution, ["perception", "planning"]) == []
+
+
+def test_unknown_tags_reports_absent_sorted(sample_distribution):
+    assert unknown_tags(sample_distribution, ["zzz", "aaa", "perception"]) == ["aaa", "zzz"]
+
+
+def test_unknown_tags_missing_repositories_key():
+    assert unknown_tags({}, ["anything"]) == ["anything"]
 
 
 def test_to_repos_entries_field_mapping(sample_distribution):

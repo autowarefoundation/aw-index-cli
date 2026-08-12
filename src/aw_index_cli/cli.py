@@ -18,6 +18,7 @@ from .compose import ComposeError
 from .compose import provenance_header
 from .compose import render_repos
 from .compose import select_repositories
+from .compose import unknown_tags
 from .gitref import remote_sha
 from .history import DEFAULT_DATA_REF
 from .history import latest_record
@@ -170,6 +171,15 @@ def _cmd_compose(args: argparse.Namespace) -> int:
     except (RegistryError, ComposeError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2
+
+    missing_tags = unknown_tags(distribution, args.tags)
+    if missing_tags:
+        names = ", ".join(repr(tag) for tag in missing_tags)
+        label = "tag" if len(missing_tags) == 1 else "tags"
+        print(
+            f"warning: no package in the distribution carries {label} {names}",
+            file=sys.stderr,
+        )
 
     if args.stdout:
         print(text)

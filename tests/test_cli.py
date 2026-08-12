@@ -98,9 +98,53 @@ def test_compose_tags_filter(distributions_dir, tmp_path, capsys):
         ]
     )
     assert rc == 0
-    parsed = yaml.safe_load(capsys.readouterr().out)
+    captured = capsys.readouterr()
+    parsed = yaml.safe_load(captured.out)
     assert list(parsed["repositories"]) == ["mid-repo"]
     assert "packages" not in parsed["repositories"]["mid-repo"]
+    assert "warning" not in captured.err
+
+
+def test_compose_unknown_tag_warns_and_exits_zero(distributions_dir, capsys):
+    rc = main(
+        [
+            "compose",
+            "--rosdistro",
+            "jazzy",
+            "--registry-path",
+            str(distributions_dir),
+            "--tags",
+            "bogus",
+            "--stdout",
+        ]
+    )
+    assert rc == 0
+    captured = capsys.readouterr()
+    assert "warning: no package in the distribution carries tag 'bogus'" in captured.err
+    # The compose still succeeds with a valid, empty body.
+    assert yaml.safe_load(captured.out)["repositories"] == {}
+
+
+def test_compose_unknown_tags_warning_pluralized(distributions_dir, capsys):
+    rc = main(
+        [
+            "compose",
+            "--rosdistro",
+            "jazzy",
+            "--registry-path",
+            str(distributions_dir),
+            "--tags",
+            "bogus",
+            "planning",
+            "worse",
+            "--stdout",
+        ]
+    )
+    assert rc == 0
+    captured = capsys.readouterr()
+    assert "warning: no package in the distribution carries tags 'bogus', 'worse'" in captured.err
+    # The known tag still selects its repository.
+    assert list(yaml.safe_load(captured.out)["repositories"]) == ["mid-repo"]
 
 
 def test_compose_monorepo_partial_selection(distributions_dir, capsys):
