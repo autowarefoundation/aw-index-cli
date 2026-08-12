@@ -105,6 +105,34 @@ def test_compose_tags_filter(distributions_dir, tmp_path, capsys):
     assert "warning" not in captured.err
 
 
+def test_compose_tag_alias_resolves_to_canonical_id(distributions_dir, capsys):
+    schema_dir = distributions_dir / "schema"
+    schema_dir.mkdir()
+    (schema_dir / "tags.yaml").write_text(
+        "groups:\n  g: G\ntags:\n  planning:\n    group: g\n    summary: s\n    aliases: [nav]\n",
+        encoding="utf-8",
+    )
+    rc = main(
+        [
+            "compose",
+            "--rosdistro",
+            "jazzy",
+            "--registry-path",
+            str(distributions_dir),
+            "--tags",
+            "nav",
+            "--stdout",
+        ]
+    )
+    assert rc == 0
+    captured = capsys.readouterr()
+    # The alias selects what its canonical id selects, with no warning…
+    assert list(yaml.safe_load(captured.out)["repositories"]) == ["mid-repo"]
+    assert "warning" not in captured.err
+    # …and the provenance header records what the user typed.
+    assert "# tags: nav" in captured.out
+
+
 def test_compose_reference_design_filter(distributions_dir, capsys):
     rc = main(
         [
