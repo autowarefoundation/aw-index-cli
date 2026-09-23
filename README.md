@@ -9,6 +9,12 @@ reads a distribution manifest (`distributions/<rosdistro>.yaml`) and composes a
 The registry is **repository-keyed**: each entry is one repository with **exactly
 one `ref`** and the packages it hosts.
 
+Schema v3 packages may declare `index_dependencies`, a list of other registered
+package names in the same ROS distribution. `compose` includes these packages'
+repositories recursively. Schema v2 distributions remain supported, but a v2
+package declaring `index_dependencies` is rejected so dependencies cannot be
+silently omitted.
+
 [index]: https://autowarefoundation.github.io/autoware-index/
 [vcs2l]: https://github.com/ros-infrastructure/vcs2l
 
@@ -100,13 +106,42 @@ aw-index-cli compose --rosdistro jazzy \
 
 - **Entry keys are registry repository keys**, the directory `vcs import`
   clones into.
-- **Filters are ANDed.** An unknown `--packages` name or `--repository` key is a
-  hard error, never a silent empty result.
+- **Filters are ANDed to choose root packages.** In schema v3, each root's
+  `index_dependencies` are then included transitively, regardless of the
+  filters. For example, selecting a planning package also imports its indexed
+  common library even when that library does not match `--tags planning`.
+  Unknown dependency names and dependency cycles are errors.
+- An unknown `--packages` name or `--repository` key is a hard error, never a
+  silent empty result.
 - **A monorepo collapses to one entry** at its single `ref`, however many of its
-  packages match.
+  packages are selected or required as dependencies.
 - **Each entry is pure vcs2l**: `type`/`url`/`version` only. The selected
-  package names live in the `# selected packages by repository:` header comment,
-  not the YAML body.
+  and dependency package names live in the `# selected packages by repository:`
+  header comment, not the YAML body. `check` reads this header to verify the
+  included packages.
+
+For example, a schema v3 package can declare:
+
+```yaml
+packages:
+  my_planner:
+    tags: [planning]
+    index_dependencies: [my_map_library]
+```
+
+`my_map_library` must be registered in the same distribution. The `.repos`
+file imports its repository automatically when you compose `my_planner`.
+Registration derives these Index edges from upstream `package.xml` dependency
+names. If a dependency also has a ROS build farm binary, the Index source is
+included in the workspace. Install remaining dependencies with rosdep after
+importing:
+
+```bash
+rosdep install --from-paths src --ignore-src --rosdistro jazzy -y
+colcon build --packages-up-to my_planner
+```
+
+`--ignore-src` skips binary installation for packages in the source workspace.
 
 > [!NOTE]
 > A clone may include unregistered sibling packages the index makes no claims
@@ -181,7 +216,8 @@ aw-index-cli list --rosdistro jazzy --tags sensing --format json
 
 Accepts the same selection filters as `compose`. Exit `0` normally; with
 `--strict`, exit `1` if any selected package is failing or unvalidated; exit `2`
-on a registry load error.
+on a registry load error. `list` displays packages matching the filters; it does
+not expand their `index_dependencies`.
 
 ## License
 

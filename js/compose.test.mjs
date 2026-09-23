@@ -42,6 +42,39 @@ const sampleDistribution = () => ({
   },
 });
 
+const dependentDistribution = () => ({
+  schema_version: "3",
+  ros_distro: "jazzy",
+  repositories: {
+    "mid-repo": {
+      url: "https://github.com/example/mid",
+      ref: { kind: "branch", value: "main" },
+      packages: { mid_pkg: { tags: ["common-library"], index_dependencies: ["leaf_pkg"] } },
+    },
+    "unrelated-repo": {
+      url: "https://github.com/example/unrelated",
+      ref: { kind: "branch", value: "main" },
+      packages: { unrelated_pkg: { tags: ["visualization"] } },
+    },
+    "app-repo": {
+      url: "https://github.com/example/app",
+      ref: { kind: "branch", value: "main" },
+      packages: {
+        app_pkg: { tags: ["planning"], index_dependencies: ["mid_pkg", "same_repo_pkg"] },
+        same_repo_pkg: { tags: ["common-library"], index_dependencies: ["leaf_pkg"] },
+      },
+    },
+    "leaf-repo": {
+      url: "https://github.com/example/leaf",
+      ref: { kind: "branch", value: "main" },
+      packages: { leaf_pkg: { tags: ["common-library"] } },
+    },
+  },
+});
+
+const selectionNames = (distribution, options) =>
+  selectRepositories(distribution, options).map(([key, , names]) => [key, names]);
+
 const EXPECTED_BODY = `repositories:
   alpha-mono:
     type: git
@@ -147,6 +180,89 @@ test("selectRepositories: whole distribution, sorted, monorepo names sorted", ()
       ["zeta-stack", ["zeta_pkg"]],
     ],
   );
+});
+
+test("selectRepositories: v3 dependencies expand after filters", () => {
+  const expected = [
+    ["app-repo", ["app_pkg", "same_repo_pkg"]],
+    ["leaf-repo", ["leaf_pkg"]],
+    ["mid-repo", ["mid_pkg"]],
+  ];
+  for (const options of [
+    { packages: ["app_pkg"] },
+    { tags: ["planning"] },
+    { repository: ["app-repo"], tags: ["planning"] },
+  ]) {
+    assert.deepEqual(selectionNames(dependentDistribution(), options), expected);
+  }
+  assert.deepEqual(
+    selectionNames(dependentDistribution(), { packages: ["app_pkg"], includeDependencies: false }),
+    [["app-repo", ["app_pkg"]]],
+  );
+});
+
+test("selectRepositories: reference design filters roots before dependency expansion", () => {
+  const distribution = dependentDistribution();
+  distribution.repositories["app-repo"].reference_design = ["pov"];
+  assert.deepEqual(selectionNames(distribution, { referenceDesign: ["pov"] }), [
+    ["app-repo", ["app_pkg", "same_repo_pkg"]],
+    ["leaf-repo", ["leaf_pkg"]],
+    ["mid-repo", ["mid_pkg"]],
+  ]);
+  const output = composeReposFile(distribution, {
+    rosDistro: "jazzy",
+    source: "src",
+    referenceDesign: ["pov"],
+  });
+  assert.match(output, /# reference_design: pov\n/);
+  assert.ok(!output.includes("unrelated-repo:"));
+});
+
+test("selectRepositories: v2 index dependencies fail even when filtered out", () => {
+  const distribution = sampleDistribution();
+  distribution.repositories["alpha-mono"].packages.alpha_sensing.index_dependencies = ["mid_pkg"];
+  assert.throws(
+    () => selectRepositories(distribution, { packages: ["zeta_pkg"] }),
+    /index_dependencies.*schema_version '2'/,
+  );
+});
+
+test("selectRepositories: unknown and cyclic v3 dependencies fail", () => {
+  const unknown = dependentDistribution();
+  unknown.repositories["mid-repo"].packages.mid_pkg.index_dependencies = ["missing_pkg"];
+  assert.throws(
+    () => selectRepositories(unknown, { packages: ["app_pkg"] }),
+    /index dependency 'missing_pkg'.*not registered/,
+  );
+
+  const cycle = dependentDistribution();
+  cycle.repositories["leaf-repo"].packages.leaf_pkg.index_dependencies = ["app_pkg"];
+  assert.throws(
+    () => selectRepositories(cycle, { packages: ["app_pkg"] }),
+    /index dependency cycle: app_pkg -> mid_pkg -> leaf_pkg -> app_pkg/,
+  );
+});
+
+test("selectRepositories: invalid v3 dependency list fails", () => {
+  const invalid = dependentDistribution();
+  invalid.repositories["app-repo"].packages.app_pkg.index_dependencies = null;
+  assert.throws(
+    () => selectRepositories(invalid, { packages: ["app_pkg"] }),
+    /invalid 'index_dependencies'/,
+  );
+});
+
+test("composeReposFile: v3 header and body include dependency closure", () => {
+  const out = composeReposFile(dependentDistribution(), {
+    rosDistro: "jazzy",
+    source: "src",
+    packages: ["app_pkg"],
+  });
+  assert.match(out, /#   app-repo: app_pkg, same_repo_pkg\n/);
+  assert.match(out, /#   leaf-repo: leaf_pkg\n/);
+  assert.match(out, /#   mid-repo: mid_pkg\n/);
+  assert.ok(!out.includes("unrelated-repo:"));
+  assert.equal((out.match(/  app-repo:\n/g) || []).length, 1);
 });
 
 test("selectRepositories: tag filter narrows to matching packages", () => {

@@ -341,6 +341,7 @@ def _cmd_list(args: argparse.Namespace) -> int:
             tags=_resolved_tags(args),
             packages=args.packages,
             repository=args.repository,
+            include_dependencies=False,
         )
 
         def fetch_record(package: str):

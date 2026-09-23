@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import copy
 import io
 import urllib.error
 
@@ -24,6 +25,23 @@ def test_load_from_file(distributions_dir, sample_distribution):
     result = load_distribution("jazzy", path=file_path)
     assert result["ros_distro"] == "jazzy"
     assert "alpha-mono" in result["repositories"]
+
+
+def test_load_v3_distribution(tmp_path, dependent_distribution):
+    file_path = tmp_path / "jazzy.yaml"
+    file_path.write_text(yaml.safe_dump(dependent_distribution), encoding="utf-8")
+    assert load_distribution("jazzy", path=file_path) == dependent_distribution
+
+
+def test_v2_cannot_declare_index_dependencies(tmp_path, sample_distribution):
+    distribution = copy.deepcopy(sample_distribution)
+    distribution["repositories"]["alpha-mono"]["packages"]["alpha_sensing"][
+        "index_dependencies"
+    ] = ["mid_pkg"]
+    file_path = tmp_path / "jazzy.yaml"
+    file_path.write_text(yaml.safe_dump(distribution), encoding="utf-8")
+    with pytest.raises(RegistryError, match="index_dependencies.*schema_version '2'"):
+        load_distribution("jazzy", path=file_path)
 
 
 def test_missing_file_raises(tmp_path):
@@ -58,7 +76,7 @@ def test_unsupported_schema_version_raises(tmp_path):
     message = str(excinfo.value)
     assert "'1'" in message
     assert "not supported by this aw-index-cli" in message
-    assert "(supports: '2')" in message
+    assert "(supports: '2', '3')" in message
     # The document may be older than the CLI; never advise upgrading it.
     assert "upgrade" not in message
 
@@ -74,7 +92,7 @@ def test_missing_schema_version_raises(tmp_path):
     message = str(excinfo.value)
     assert "None" in message
     assert "not supported by this aw-index-cli" in message
-    assert "(supports: '2')" in message
+    assert "(supports: '2', '3')" in message
 
 
 def test_non_mapping_raises(tmp_path):

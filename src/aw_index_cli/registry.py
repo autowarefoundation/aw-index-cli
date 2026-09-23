@@ -13,7 +13,7 @@ DEFAULT_REPO = "autowarefoundation/autoware-index"
 DEFAULT_REF = "main"
 RAW_URL = "https://raw.githubusercontent.com/{repo}/{ref}/distributions/{ros_distro}.yaml"
 VOCABULARY_RAW_URL = "https://raw.githubusercontent.com/{repo}/{ref}/schema/tags.yaml"
-SUPPORTED_SCHEMA_VERSION = "2"
+SUPPORTED_SCHEMA_VERSIONS = ("2", "3")
 
 
 class RegistryError(Exception):
@@ -65,8 +65,8 @@ def load_distribution(
     which ``distributions/<ros_distro>.yaml`` is expected). Otherwise the file is
     fetched from raw.githubusercontent.com for ``repo`` at ``ref``.
 
-    Only documents with ``schema_version`` equal to
-    :data:`SUPPORTED_SCHEMA_VERSION` are accepted; anything else raises
+    Only documents with ``schema_version`` in
+    :data:`SUPPORTED_SCHEMA_VERSIONS` are accepted; anything else raises
     :class:`RegistryError` rather than ever producing silent empty output.
     """
     if path is not None:
@@ -89,11 +89,11 @@ def load_distribution(
     if not isinstance(parsed, dict):
         raise RegistryError(f"distribution for {ros_distro} is not a mapping")
     schema_version = parsed.get("schema_version")
-    if schema_version != SUPPORTED_SCHEMA_VERSION:
+    if schema_version not in SUPPORTED_SCHEMA_VERSIONS:
         raise RegistryError(
             f"distribution for {ros_distro} has schema_version "
             f"{schema_version!r}, which is not supported by this aw-index-cli "
-            f"(supports: {SUPPORTED_SCHEMA_VERSION!r})"
+            f"(supports: {', '.join(repr(v) for v in SUPPORTED_SCHEMA_VERSIONS)})"
         )
     if parsed.get("ros_distro") != ros_distro:
         raise RegistryError(
@@ -111,6 +111,16 @@ def load_distribution(
                 f"distribution for {ros_distro}: repository {key!r} must be "
                 f"a mapping, got {type(spec).__name__}"
             )
+        if schema_version == "2":
+            packages = spec.get("packages")
+            if isinstance(packages, dict):
+                for name, package_spec in packages.items():
+                    if isinstance(package_spec, dict) and "index_dependencies" in package_spec:
+                        raise RegistryError(
+                            f"distribution for {ros_distro}: package {name!r} in repository "
+                            f"{key!r} declares 'index_dependencies' under schema_version '2'; "
+                            "use schema_version '3'"
+                        )
     return parsed
 
 
