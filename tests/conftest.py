@@ -60,6 +60,7 @@ def sample_distribution() -> dict:
                 "url": "https://github.com/example/alpha_mono",
                 "ref": {"kind": "branch", "value": "main"},
                 "governance": "foundation",
+                "reference_design": ["pov"],
                 "maintainers": [
                     {
                         "name": "Alpha Dev",

@@ -10,6 +10,7 @@ from aw_index_cli.compose import provenance_header
 from aw_index_cli.compose import render_repos
 from aw_index_cli.compose import select_repositories
 from aw_index_cli.compose import to_repos_entries
+from aw_index_cli.compose import unknown_reference_designs
 from aw_index_cli.compose import unknown_tags
 
 
@@ -168,6 +169,32 @@ def test_select_existing_package_excluded_by_other_filter_is_not_unknown(
         )
         == []
     )
+
+
+def test_select_by_reference_design(sample_distribution):
+    selected = select_repositories(sample_distribution, reference_design=["pov"])
+    assert [key for key, _spec, _names in selected] == ["alpha-mono"]
+
+
+def test_select_reference_design_anded_with_tags(sample_distribution):
+    selected = select_repositories(
+        sample_distribution, tags=["perception"], reference_design=["pov"]
+    )
+    assert [(key, names) for key, _spec, names in selected] == [
+        ("alpha-mono", ["alpha_perception"])
+    ]
+
+
+def test_select_unknown_reference_design_is_empty_not_an_error(sample_distribution):
+    # Unlike --repository/--packages, the legal design names live in the
+    # registry schema the CLI never fetches: empty result, cli-level warning.
+    assert select_repositories(sample_distribution, reference_design=["lsa"]) == []
+
+
+def test_unknown_reference_designs_reports_absent_sorted(sample_distribution):
+    assert unknown_reference_designs(sample_distribution, None) == []
+    assert unknown_reference_designs(sample_distribution, ["pov"]) == []
+    assert unknown_reference_designs(sample_distribution, ["zz", "aa", "pov"]) == ["aa", "zz"]
 
 
 def test_unknown_tags_empty_without_filter(sample_distribution):
@@ -383,10 +410,21 @@ def test_provenance_header_records_packages_and_repository_filters():
     assert "# repository: alpha-mono" in lines
 
 
+def test_provenance_header_records_reference_design_filter():
+    lines = provenance_header(
+        tool_version="0.1.0",
+        ros_distro="jazzy",
+        source="src",
+        reference_design=["pov"],
+    )
+    assert "# reference_design: pov" in lines
+
+
 def test_provenance_header_filter_lines_omitted_when_absent():
     lines = provenance_header(tool_version="0.1.0", ros_distro="jazzy", source="src")
     assert not any(line.startswith("# packages:") for line in lines)
     assert not any(line.startswith("# repository:") for line in lines)
+    assert not any(line.startswith("# reference_design:") for line in lines)
 
 
 def test_render_repos_valid_yaml_roundtrip(sample_distribution):

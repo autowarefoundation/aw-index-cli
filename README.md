@@ -31,8 +31,9 @@ pipx upgrade aw-index-cli   # update to the latest release
 
 ## `compose`
 
-Select what you need by package, repository, or tag. The distribution is
-fetched from GitHub by default, so no registry checkout is required.
+Select what you need by package, repository, tag, or reference design. The
+distribution is fetched from GitHub by default, so no registry checkout is
+required.
 
 ```bash
 # Recommended: compose just the packages you want.
@@ -46,15 +47,18 @@ aw-index-cli compose --rosdistro jazzy \
 # Narrow by tag (filters can be combined; they are ANDed).
 aw-index-cli compose --rosdistro jazzy --tags sensing perception
 
+# Compose the repositories granted a named AWF reference design.
+aw-index-cli compose --rosdistro jazzy --reference-design pov --stdout | vcs import src
+
 # Print to stdout instead of writing a file.
 aw-index-cli compose --rosdistro jazzy \
   --packages autoware_livox_tag_filter --stdout
 ```
 
 > [!TIP]
-> Omitting all of `--packages`, `--repository`, and `--tags` composes the
-> **entire** distribution. That is supported, but usually you want to name what
-> you consume.
+> Omitting all of `--packages`, `--repository`, `--tags`, and
+> `--reference-design` composes the **entire** distribution. That is
+> supported, but usually you want to name what you consume.
 
 Example output for `compose --rosdistro jazzy --repository livox-tools`
 (a monorepo entry hosting two registered packages):

@@ -105,6 +105,48 @@ def test_compose_tags_filter(distributions_dir, tmp_path, capsys):
     assert "warning" not in captured.err
 
 
+def test_compose_reference_design_filter(distributions_dir, capsys):
+    rc = main(
+        [
+            "compose",
+            "--rosdistro",
+            "jazzy",
+            "--registry-path",
+            str(distributions_dir),
+            "--reference-design",
+            "pov",
+            "--stdout",
+        ]
+    )
+    assert rc == 0
+    captured = capsys.readouterr()
+    assert "# reference_design: pov" in captured.out
+    parsed = yaml.safe_load(captured.out)
+    assert list(parsed["repositories"]) == ["alpha-mono"]
+    assert "warning" not in captured.err
+
+
+def test_compose_unknown_reference_design_warns_and_exits_zero(distributions_dir, capsys):
+    rc = main(
+        [
+            "compose",
+            "--rosdistro",
+            "jazzy",
+            "--registry-path",
+            str(distributions_dir),
+            "--reference-design",
+            "lsa",
+            "--stdout",
+        ]
+    )
+    assert rc == 0
+    captured = capsys.readouterr()
+    assert (
+        "warning: no repository in the distribution carries reference design 'lsa'" in captured.err
+    )
+    assert yaml.safe_load(captured.out)["repositories"] == {}
+
+
 def test_compose_unknown_tag_warns_and_exits_zero(distributions_dir, capsys):
     rc = main(
         [

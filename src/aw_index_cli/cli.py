@@ -18,6 +18,7 @@ from .compose import ComposeError
 from .compose import provenance_header
 from .compose import render_repos
 from .compose import select_repositories
+from .compose import unknown_reference_designs
 from .compose import unknown_tags
 from .gitref import remote_sha
 from .history import DEFAULT_DATA_REF
@@ -72,6 +73,14 @@ def _build_parser() -> argparse.ArgumentParser:
         help="select only these repository entries by registry key",
     )
     compose.add_argument("--tags", nargs="*")
+    compose.add_argument(
+        "--reference-design",
+        nargs="*",
+        help=(
+            "select only repositories granted these named reference designs "
+            "(e.g. pov); ANDed with other filters"
+        ),
+    )
     compose.add_argument(
         "--autoware",
         help=(
@@ -148,6 +157,7 @@ def _cmd_compose(args: argparse.Namespace) -> int:
                 tags=args.tags,
                 packages=args.packages,
                 repository=args.repository,
+                reference_design=args.reference_design,
             )
         ]
         header_lines = provenance_header(
@@ -157,6 +167,7 @@ def _cmd_compose(args: argparse.Namespace) -> int:
             tags=args.tags,
             packages=args.packages,
             repository=args.repository,
+            reference_design=args.reference_design,
             autoware=args.autoware,
             generated_at=generated_at,
             selection=selection,
@@ -166,6 +177,7 @@ def _cmd_compose(args: argparse.Namespace) -> int:
             tags=args.tags,
             packages=args.packages,
             repository=args.repository,
+            reference_design=args.reference_design,
             header_lines=header_lines,
         )
     except (RegistryError, ComposeError) as exc:
@@ -178,6 +190,14 @@ def _cmd_compose(args: argparse.Namespace) -> int:
         label = "tag" if len(missing_tags) == 1 else "tags"
         print(
             f"warning: no package in the distribution carries {label} {names}",
+            file=sys.stderr,
+        )
+    missing_designs = unknown_reference_designs(distribution, args.reference_design)
+    if missing_designs:
+        names = ", ".join(repr(design) for design in missing_designs)
+        label = "reference design" if len(missing_designs) == 1 else "reference designs"
+        print(
+            f"warning: no repository in the distribution carries {label} {names}",
             file=sys.stderr,
         )
 
