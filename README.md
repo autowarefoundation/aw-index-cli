@@ -64,7 +64,7 @@ aw-index-cli compose --rosdistro jazzy \
 Example output for `compose --rosdistro jazzy --repository livox-tools` (a monorepo entry hosting two registered packages):
 
 ```yaml
-# aw-index-cli 0.4.0
+# aw-index-cli 0.5.0
 # source: autowarefoundation/autoware-index@main
 # rosdistro: jazzy
 # tags: all

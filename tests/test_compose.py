@@ -137,11 +137,21 @@ def test_select_tag_no_match_is_empty(sample_distribution):
 
 
 def test_select_missing_repositories_key():
-    assert select_repositories({"ros_distro": "jazzy"}) == []
+    assert select_repositories({"schema_version": "4", "ros_distro": "jazzy"}) == []
+
+
+@pytest.mark.parametrize("version", [None, "3", "5"])
+def test_select_rejects_non_v4_schema(version):
+    distribution = {"repositories": {}}
+    if version is not None:
+        distribution["schema_version"] = version
+    with pytest.raises(ComposeError, match="unsupported schema_version.*expected '4'"):
+        select_repositories(distribution)
 
 
 def test_select_excludes_empty_and_missing_tags_under_filter():
     distribution = {
+        "schema_version": "4",
         "ros_distro": "jazzy",
         "repositories": {
             "edge-repo": {
@@ -165,6 +175,7 @@ def test_select_excludes_empty_and_missing_tags_under_filter():
 
 def test_select_none_package_spec_retained_unfiltered_excluded_when_filtered():
     distribution = {
+        "schema_version": "4",
         "ros_distro": "jazzy",
         "repositories": {
             "r": {
@@ -183,6 +194,7 @@ def test_select_none_package_spec_retained_unfiltered_excluded_when_filtered():
 
 def test_select_repo_without_packages_is_excluded():
     distribution = {
+        "schema_version": "4",
         "ros_distro": "jazzy",
         "repositories": {
             "bare-repo": {"url": "https://x/bare", "ref": {"value": "main"}},
@@ -336,13 +348,14 @@ def test_to_repos_entries_only_vcs2l_fields():
     repositories = select_repositories(
         # build a minimal distribution inline to exercise every ref kind
         {
+            "schema_version": "4",
             "repositories": {
                 "r": {
                     "url": "https://x/r",
                     "ref": {"kind": "branch", "value": "main"},
                     "packages": {"p": {"tags": ["t"]}},
                 },
-            }
+            },
         }
     )
     entries = to_repos_entries(repositories)
@@ -374,6 +387,7 @@ def test_to_repos_entries_ref_string_raises():
 
 def test_select_packages_list_raises():
     distribution = {
+        "schema_version": "4",
         "ros_distro": "jazzy",
         "repositories": {
             "r": {
@@ -565,6 +579,9 @@ def test_render_repos_header_precedes_body_one_trailing_newline(sample_distribut
 
 def test_render_repos_empty_distribution():
     header = provenance_header(tool_version="0.1.0", ros_distro="jazzy", source="src")
-    text = render_repos({"ros_distro": "jazzy", "repositories": {}}, header_lines=header)
+    text = render_repos(
+        {"schema_version": "4", "ros_distro": "jazzy", "repositories": {}},
+        header_lines=header,
+    )
     parsed = yaml.safe_load(text)
     assert parsed == {"repositories": {}}

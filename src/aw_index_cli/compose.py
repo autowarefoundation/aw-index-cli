@@ -37,7 +37,7 @@ def select_repositories(
     * ``reference_design``: keep only entries marked as a reference design.
 
     A repository is selected when at least one of its packages survives every
-    given filter. For a v4 distribution, the selected packages then pull in
+    given filter. The selected packages then pull in
     their transitive ``index_dependencies``, even when those dependencies do
     not match the filters. ``include_dependencies=False`` keeps the original
     filtered selection for commands such as ``list``. Package names within
@@ -46,7 +46,12 @@ def select_repositories(
     distribution (independent of the other filters, so a typo never hides
     behind an empty result) raises :class:`ComposeError`, as does a selected
     repository whose ``packages`` is not a mapping.
+    Only schema v4 distributions are accepted.
     """
+    if distribution.get("schema_version") != "4":
+        raise ComposeError(
+            f"unsupported schema_version {distribution.get('schema_version')!r} " "(expected '4')"
+        )
     all_repos = distribution.get("repositories") or {}
     wanted_tags = set(tags or [])
     wanted_pkgs = set(packages or [])
@@ -88,7 +93,7 @@ def select_repositories(
         )
         if names:
             selected.append((key, spec, names))
-    if include_dependencies and distribution.get("schema_version") == "4" and selected:
+    if include_dependencies and selected:
         return _with_index_dependencies(all_repos, selected)
     return selected
 

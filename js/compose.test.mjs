@@ -182,6 +182,17 @@ test("selectRepositories: whole distribution, sorted, monorepo names sorted", ()
   );
 });
 
+test("selectRepositories: only schema v4 is accepted", () => {
+  for (const schema_version of [undefined, "3", "5"]) {
+    const distribution = { repositories: {} };
+    if (schema_version !== undefined) distribution.schema_version = schema_version;
+    assert.throws(
+      () => selectRepositories(distribution),
+      /unsupported schema_version.*expected '4'/,
+    );
+  }
+});
+
 test("selectRepositories: v4 dependencies expand after filters", () => {
   const expected = [
     ["app-repo", ["app_pkg", "same_repo_pkg"]],
@@ -304,6 +315,7 @@ test("selectRepositories: empty 'packages' container is skipped, not an error", 
   // Mirrors Python's `... or {}`: a repo with `packages: []` (or `{}`) selects
   // nothing rather than raising, so it just drops out of the result.
   const dist = {
+    schema_version: "4",
     repositories: {
       "empty-list": { url: "https://x/y", ref: { kind: "branch", value: "main" }, packages: [] },
       "empty-map": { url: "https://x/z", ref: { kind: "branch", value: "main" }, packages: {} },
@@ -320,7 +332,7 @@ test("selectRepositories: empty 'packages' container is skipped, not an error", 
   );
   // A non-empty non-mapping is still a hard error (matches Python).
   assert.throws(
-    () => selectRepositories({ repositories: { r: { packages: ["oops"] } } }),
+    () => selectRepositories({ schema_version: "4", repositories: { r: { packages: ["oops"] } } }),
     ComposeError,
   );
 });
