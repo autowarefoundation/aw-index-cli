@@ -58,7 +58,7 @@ function rejectUnknown(singular, plural, missing) {
  *
  * The four optional filters (`tags`, `packages`, `repository`,
  * `referenceDesign`) are ANDed;
- * omit all to select the whole distribution. In a v3 distribution, the
+ * omit all to select the whole distribution. In a v4 distribution, the
  * filtered roots include their transitive `index_dependencies` regardless of
  * the filters. Set `includeDependencies: false` for roots-only listing. An
  * explicit `repository` key or `packages` name absent from the *whole*
@@ -70,27 +70,14 @@ export function selectRepositories(
     tags = null,
     packages = null,
     repository = null,
-    referenceDesign = null,
+    referenceDesign = false,
     includeDependencies = true,
   } = {},
 ) {
   const allRepos = (distribution && distribution.repositories) || {};
-  if (distribution?.schema_version === "2") {
-    for (const [key, spec] of Object.entries(allRepos)) {
-      if (!isMapping(spec?.packages)) continue;
-      for (const [name, packageSpec] of Object.entries(spec.packages)) {
-        if (isMapping(packageSpec) && Object.hasOwn(packageSpec, "index_dependencies")) {
-          throw new ComposeError(
-            `package '${name}' in repository '${key}' declares 'index_dependencies' under schema_version '2'; use schema_version '3'`,
-          );
-        }
-      }
-    }
-  }
   const wantedTags = new Set(tags || []);
   const wantedPkgs = new Set(packages || []);
   const wantedRepos = new Set(repository || []);
-  const wantedDesigns = new Set(referenceDesign || []);
 
   const knownPkgs = new Set();
   for (const spec of Object.values(allRepos)) {
@@ -114,12 +101,13 @@ export function selectRepositories(
   for (const key of Object.keys(allRepos).sort(cmp)) {
     if (wantedRepos.size && !wantedRepos.has(key)) continue;
     const spec = allRepos[key] || {};
-    if (
-      wantedDesigns.size &&
-      !(spec.reference_design || []).some((design) => wantedDesigns.has(design))
-    ) {
-      continue;
+    const marker = spec.reference_design;
+    if (marker != null && typeof marker !== "boolean") {
+      throw new ComposeError(
+        `repository '${key}' has 'reference_design' that is not a boolean (got ${Array.isArray(marker) ? "array" : typeof marker})`,
+      );
     }
+    if (referenceDesign && !marker) continue;
     const specPkgs = mappingOrEmpty(spec.packages);
     if (!isMapping(specPkgs)) {
       throw new ComposeError(
@@ -137,7 +125,7 @@ export function selectRepositories(
       .sort(cmp);
     if (names.length) selected.push([key, spec, names]);
   }
-  if (includeDependencies && distribution?.schema_version === "3" && selected.length) {
+  if (includeDependencies && distribution?.schema_version === "4" && selected.length) {
     return withIndexDependencies(allRepos, selected);
   }
   return selected;
@@ -246,7 +234,7 @@ export function provenanceHeader({
   tags = null,
   packages = null,
   repository = null,
-  referenceDesign = null,
+  referenceDesign = false,
   autoware = null,
   generatedAt = null,
   selection = null,
@@ -259,9 +247,7 @@ export function provenanceHeader({
   ];
   if (packages && packages.length) lines.push(`# packages: ${packages.join(", ")}`);
   if (repository && repository.length) lines.push(`# repository: ${repository.join(", ")}`);
-  if (referenceDesign && referenceDesign.length) {
-    lines.push(`# reference_design: ${referenceDesign.join(", ")}`);
-  }
+  if (referenceDesign) lines.push("# reference_design: true");
   if (autoware != null) {
     lines.push(
       `# autoware: ${autoware} (informational only, not a ref selector; the registry tracks one ref per repository)`,
@@ -286,7 +272,7 @@ export function provenanceHeader({
  */
 export function renderRepos(
   distribution,
-  { tags = null, packages = null, repository = null, referenceDesign = null, headerLines } = {},
+  { tags = null, packages = null, repository = null, referenceDesign = false, headerLines } = {},
 ) {
   const repositories = selectRepositories(distribution, {
     tags,
@@ -319,7 +305,7 @@ export function composeReposFile(
     tags = null,
     packages = null,
     repository = null,
-    referenceDesign = null,
+    referenceDesign = false,
     autoware = null,
     generatedAt = null,
   } = {},

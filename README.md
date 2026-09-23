@@ -7,9 +7,9 @@ It reads a distribution manifest (`distributions/<rosdistro>.yaml`) and composes
 
 The registry is **repository-keyed**: each entry is one repository with **exactly one `ref`** and the packages it hosts.
 
-Schema v3 packages may declare `index_dependencies`, a list of other registered package names in the same ROS distribution.
+The CLI accepts registry schema v4 only.
+Schema v4 packages may declare `index_dependencies`, a list of other registered package names in the same ROS distribution.
 `compose` includes these packages' repositories recursively.
-Schema v2 distributions remain supported, but a v2 package declaring `index_dependencies` is rejected so dependencies cannot be silently omitted.
 
 [index]: https://autowarefoundation.github.io/autoware-index/
 [vcs2l]: https://github.com/ros-infrastructure/vcs2l
@@ -49,8 +49,8 @@ aw-index-cli compose --rosdistro jazzy \
 # registry vocabulary resolve too: --tags ai selects the same as --tags ml.
 aw-index-cli compose --rosdistro jazzy --tags sensing perception
 
-# Compose the repositories granted a named AWF reference design.
-aw-index-cli compose --rosdistro jazzy --reference-design pov --stdout | vcs import src
+# Compose entries marked as a reference design.
+aw-index-cli compose --rosdistro jazzy --reference-design --stdout | vcs import src
 
 # Print to stdout instead of writing a file.
 aw-index-cli compose --rosdistro jazzy \
@@ -99,7 +99,7 @@ aw-index-cli compose --rosdistro jazzy \
 
 - **Entry keys are registry repository keys**, the directory `vcs import` clones into.
 - **Filters are ANDed to choose root packages.**
-  In schema v3, each root's `index_dependencies` are then included transitively, regardless of the filters.
+  In schema v4, each root's `index_dependencies` are then included transitively, regardless of the filters.
   For example, selecting a planning package also imports its indexed common library even when that library does not match `--tags planning`.
   Unknown dependency names and dependency cycles are errors.
 - An unknown `--packages` name or `--repository` key is a hard error, never a silent empty result.
@@ -108,7 +108,7 @@ aw-index-cli compose --rosdistro jazzy \
   The selected and dependency package names live in the `# selected packages by repository:` header comment, not the YAML body.
   `check` reads this header to verify the included packages.
 
-For example, a schema v3 package can declare:
+For example, a schema v4 package can declare:
 
 ```yaml
 packages:

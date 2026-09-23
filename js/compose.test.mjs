@@ -18,7 +18,7 @@ import {
 } from "./compose.mjs";
 
 const sampleDistribution = () => ({
-  schema_version: "2",
+  schema_version: "4",
   ros_distro: "jazzy",
   repositories: {
     "zeta-stack": {
@@ -43,7 +43,7 @@ const sampleDistribution = () => ({
 });
 
 const dependentDistribution = () => ({
-  schema_version: "3",
+  schema_version: "4",
   ros_distro: "jazzy",
   repositories: {
     "mid-repo": {
@@ -182,7 +182,7 @@ test("selectRepositories: whole distribution, sorted, monorepo names sorted", ()
   );
 });
 
-test("selectRepositories: v3 dependencies expand after filters", () => {
+test("selectRepositories: v4 dependencies expand after filters", () => {
   const expected = [
     ["app-repo", ["app_pkg", "same_repo_pkg"]],
     ["leaf-repo", ["leaf_pkg"]],
@@ -203,8 +203,8 @@ test("selectRepositories: v3 dependencies expand after filters", () => {
 
 test("selectRepositories: reference design filters roots before dependency expansion", () => {
   const distribution = dependentDistribution();
-  distribution.repositories["app-repo"].reference_design = ["pov"];
-  assert.deepEqual(selectionNames(distribution, { referenceDesign: ["pov"] }), [
+  distribution.repositories["app-repo"].reference_design = true;
+  assert.deepEqual(selectionNames(distribution, { referenceDesign: true }), [
     ["app-repo", ["app_pkg", "same_repo_pkg"]],
     ["leaf-repo", ["leaf_pkg"]],
     ["mid-repo", ["mid_pkg"]],
@@ -212,22 +212,22 @@ test("selectRepositories: reference design filters roots before dependency expan
   const output = composeReposFile(distribution, {
     rosDistro: "jazzy",
     source: "src",
-    referenceDesign: ["pov"],
+    referenceDesign: true,
   });
-  assert.match(output, /# reference_design: pov\n/);
+  assert.match(output, /# reference_design: true\n/);
   assert.ok(!output.includes("unrelated-repo:"));
 });
 
-test("selectRepositories: v2 index dependencies fail even when filtered out", () => {
+test("selectRepositories: named reference design lists are rejected", () => {
   const distribution = sampleDistribution();
-  distribution.repositories["alpha-mono"].packages.alpha_sensing.index_dependencies = ["mid_pkg"];
+  distribution.repositories["alpha-mono"].reference_design = ["pov"];
   assert.throws(
-    () => selectRepositories(distribution, { packages: ["zeta_pkg"] }),
-    /index_dependencies.*schema_version '2'/,
+    () => selectRepositories(distribution, { referenceDesign: true }),
+    /reference_design.*not a boolean.*array/,
   );
 });
 
-test("selectRepositories: unknown and cyclic v3 dependencies fail", () => {
+test("selectRepositories: unknown and cyclic v4 dependencies fail", () => {
   const unknown = dependentDistribution();
   unknown.repositories["mid-repo"].packages.mid_pkg.index_dependencies = ["missing_pkg"];
   assert.throws(
@@ -243,7 +243,7 @@ test("selectRepositories: unknown and cyclic v3 dependencies fail", () => {
   );
 });
 
-test("selectRepositories: invalid v3 dependency list fails", () => {
+test("selectRepositories: invalid v4 dependency list fails", () => {
   const invalid = dependentDistribution();
   invalid.repositories["app-repo"].packages.app_pkg.index_dependencies = null;
   assert.throws(
@@ -252,7 +252,7 @@ test("selectRepositories: invalid v3 dependency list fails", () => {
   );
 });
 
-test("composeReposFile: v3 header and body include dependency closure", () => {
+test("composeReposFile: v4 header and body include dependency closure", () => {
   const out = composeReposFile(dependentDistribution(), {
     rosDistro: "jazzy",
     source: "src",

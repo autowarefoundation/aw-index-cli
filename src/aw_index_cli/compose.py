@@ -24,7 +24,7 @@ def select_repositories(
     packages: list[str] | None = None,
     repository: list[str] | None = None,
     include_dependencies: bool = True,
-    reference_design: list[str] | None = None,
+    reference_design: bool = False,
 ) -> list[tuple[str, dict, list[str]]]:
     """Return ``(key, spec, selected_packages)`` triples sorted by repo key.
 
@@ -34,11 +34,10 @@ def select_repositories(
     * ``tags``: keep packages whose own ``tags`` intersect these.
     * ``packages``: keep packages whose name is in this list.
     * ``repository``: keep only these repository entries (by registry key).
-    * ``reference_design``: keep only repository entries whose granted
-      ``reference_design`` names intersect these.
+    * ``reference_design``: keep only entries marked as a reference design.
 
     A repository is selected when at least one of its packages survives every
-    given filter. For a v3 distribution, the selected packages then pull in
+    given filter. For a v4 distribution, the selected packages then pull in
     their transitive ``index_dependencies``, even when those dependencies do
     not match the filters. ``include_dependencies=False`` keeps the original
     filtered selection for commands such as ``list``. Package names within
@@ -49,20 +48,9 @@ def select_repositories(
     repository whose ``packages`` is not a mapping.
     """
     all_repos = distribution.get("repositories") or {}
-    if distribution.get("schema_version") == "2":
-        for key, spec in all_repos.items():
-            package_specs = (spec or {}).get("packages")
-            if isinstance(package_specs, dict):
-                for name, package_spec in package_specs.items():
-                    if isinstance(package_spec, dict) and "index_dependencies" in package_spec:
-                        raise ComposeError(
-                            f"package {name!r} in repository {key!r} declares "
-                            "'index_dependencies' under schema_version '2'; use schema_version '3'"
-                        )
     wanted_tags = set(tags or [])
     wanted_pkgs = set(packages or [])
     wanted_repos = set(repository or [])
-    wanted_designs = set(reference_design or [])
 
     # Validate explicit names against the entire distribution before filtering,
     # so an unknown name errors loudly rather than yielding silent-empty output.
@@ -78,9 +66,13 @@ def select_repositories(
     for key, spec in sorted(all_repos.items()):
         if wanted_repos and key not in wanted_repos:
             continue
-        if wanted_designs and not (
-            set((spec or {}).get("reference_design") or []) & wanted_designs
-        ):
+        marker = (spec or {}).get("reference_design")
+        if marker is not None and not isinstance(marker, bool):
+            raise ComposeError(
+                f"repository {key!r} has 'reference_design' that is not a boolean "
+                f"(got {type(marker).__name__})"
+            )
+        if reference_design and not marker:
             continue
         spec_pkgs = (spec or {}).get("packages") or {}
         if not isinstance(spec_pkgs, dict):
@@ -96,7 +88,7 @@ def select_repositories(
         )
         if names:
             selected.append((key, spec, names))
-    if include_dependencies and distribution.get("schema_version") == "3" and selected:
+    if include_dependencies and distribution.get("schema_version") == "4" and selected:
         return _with_index_dependencies(all_repos, selected)
     return selected
 
@@ -104,7 +96,7 @@ def select_repositories(
 def _with_index_dependencies(
     all_repos: dict, selected: list[tuple[str, dict, list[str]]]
 ) -> list[tuple[str, dict, list[str]]]:
-    """Expand filtered roots to their full v3 package dependency closure."""
+    """Expand filtered roots to their full v4 package dependency closure."""
     owners: dict[str, tuple[str, dict]] = {}
     for repo_key, repo in sorted(all_repos.items()):
         package_specs = (repo or {}).get("packages") or {}
@@ -178,21 +170,6 @@ def unknown_tags(distribution: dict, tags: list[str] | None) -> list[str]:
     return sorted(set(tags) - carried)
 
 
-def unknown_reference_designs(distribution: dict, designs: list[str] | None) -> list[str]:
-    """Return the requested design names that no repository entry carries.
-
-    Same contract as :func:`unknown_tags`: the set of legal design names
-    lives in the registry schema, which the CLI never fetches, so an absent
-    name is a stderr warning, never a hard error.
-    """
-    if not designs:
-        return []
-    carried: set[str] = set()
-    for spec in (distribution.get("repositories") or {}).values():
-        carried.update((spec or {}).get("reference_design") or [])
-    return sorted(set(designs) - carried)
-
-
 def to_repos_entries(repositories: list[tuple[str, dict, list[str]]]) -> dict:
     """Map selected repositories to an ordered ``key -> entry`` dict.
 
@@ -236,7 +213,7 @@ def provenance_header(
     tags: list[str] | None = None,
     packages: list[str] | None = None,
     repository: list[str] | None = None,
-    reference_design: list[str] | None = None,
+    reference_design: bool = False,
     autoware: str | None = None,
     generated_at: str | None = None,
     selection: list[tuple[str, list[str]]] | None = None,
@@ -259,7 +236,7 @@ def provenance_header(
     if repository:
         lines.append(f"# repository: {', '.join(repository)}")
     if reference_design:
-        lines.append(f"# reference_design: {', '.join(reference_design)}")
+        lines.append("# reference_design: true")
     if autoware is not None:
         lines.append(
             f"# autoware: {autoware} "
@@ -284,7 +261,7 @@ def render_repos(
     tags: list[str] | None = None,
     packages: list[str] | None = None,
     repository: list[str] | None = None,
-    reference_design: list[str] | None = None,
+    reference_design: bool = False,
     header_lines: list[str],
 ) -> str:
     """Render the full ``.repos`` document (header comments + YAML body).

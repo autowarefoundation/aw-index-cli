@@ -142,37 +142,15 @@ def test_compose_reference_design_filter(distributions_dir, capsys):
             "--registry-path",
             str(distributions_dir),
             "--reference-design",
-            "pov",
             "--stdout",
         ]
     )
     assert rc == 0
     captured = capsys.readouterr()
-    assert "# reference_design: pov" in captured.out
+    assert "# reference_design: true" in captured.out
     parsed = yaml.safe_load(captured.out)
     assert list(parsed["repositories"]) == ["alpha-mono"]
     assert "warning" not in captured.err
-
-
-def test_compose_unknown_reference_design_warns_and_exits_zero(distributions_dir, capsys):
-    rc = main(
-        [
-            "compose",
-            "--rosdistro",
-            "jazzy",
-            "--registry-path",
-            str(distributions_dir),
-            "--reference-design",
-            "lsa",
-            "--stdout",
-        ]
-    )
-    assert rc == 0
-    captured = capsys.readouterr()
-    assert (
-        "warning: no repository in the distribution carries reference design 'lsa'" in captured.err
-    )
-    assert yaml.safe_load(captured.out)["repositories"] == {}
 
 
 def test_compose_unknown_tag_warns_and_exits_zero(distributions_dir, capsys):
@@ -263,7 +241,7 @@ def test_compose_packages_selection(distributions_dir, capsys):
     assert "#   alpha-mono: alpha_sensing" in out
 
 
-def test_compose_v3_pulls_dependencies_and_checks_them(
+def test_compose_v4_pulls_dependencies_and_checks_them(
     dependent_distribution, tmp_path, monkeypatch, capsys
 ):
     registry_file = tmp_path / "jazzy.yaml"
@@ -433,7 +411,7 @@ def test_compose_rejects_schema_version_1(tmp_path, capsys):
     assert captured.err.startswith("error:")
     assert "'1'" in captured.err
     assert "not supported by this aw-index-cli" in captured.err
-    assert "(supports: '2', '3')" in captured.err
+    assert "(supports: '4')" in captured.err
     # The document is older than the CLI, so no "please upgrade" advice.
     assert "upgrade" not in captured.err
 
@@ -467,7 +445,7 @@ def test_compose_repositories_list_clean_error(tmp_path, capsys):
         tmp_path,
         capsys,
         {
-            "schema_version": "2",
+            "schema_version": "4",
             "ros_distro": "jazzy",
             "repositories": ["alpha-mono"],
         },
@@ -480,7 +458,7 @@ def test_compose_repository_entry_string_clean_error(tmp_path, capsys):
         tmp_path,
         capsys,
         {
-            "schema_version": "2",
+            "schema_version": "4",
             "ros_distro": "jazzy",
             "repositories": {"alpha-mono": "https://x/alpha_mono"},
         },
@@ -493,7 +471,7 @@ def test_compose_ref_string_clean_error(tmp_path, capsys):
         tmp_path,
         capsys,
         {
-            "schema_version": "2",
+            "schema_version": "4",
             "ros_distro": "jazzy",
             "repositories": {
                 "alpha-mono": {
@@ -512,7 +490,7 @@ def test_compose_packages_list_clean_error(tmp_path, capsys):
         tmp_path,
         capsys,
         {
-            "schema_version": "2",
+            "schema_version": "4",
             "ros_distro": "jazzy",
             "repositories": {
                 "alpha-mono": {
@@ -735,7 +713,7 @@ def test_list_json(distributions_dir, monkeypatch, capsys, history_urlopen):
     assert data["rows"][0]["package"] == "mid_pkg"
 
 
-def test_list_v3_keeps_filtered_roots_only(dependent_distribution, tmp_path, monkeypatch, capsys):
+def test_list_v4_keeps_filtered_roots_only(dependent_distribution, tmp_path, monkeypatch, capsys):
     registry_file = tmp_path / "jazzy.yaml"
     registry_file.write_text(yaml.safe_dump(dependent_distribution), encoding="utf-8")
     monkeypatch.setattr(cli, "latest_record", lambda *args, **kwargs: None)

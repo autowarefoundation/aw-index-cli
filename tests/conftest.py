@@ -27,7 +27,7 @@ class _FakeResponse:
 
 @pytest.fixture
 def sample_distribution() -> dict:
-    """Return a small but representative schema_version "2" jazzy distribution dict.
+    """Return a small but representative schema_version "4" jazzy distribution dict.
 
     Covers a branch ref, a tag ref, and a sha ref; a monorepo with two
     packages plus two single-package repositories; and varied tags so tag
@@ -35,7 +35,7 @@ def sample_distribution() -> dict:
     sorted order.
     """
     return {
-        "schema_version": "2",
+        "schema_version": "4",
         "ros_distro": "jazzy",
         "repositories": {
             "zeta-stack": {
@@ -60,7 +60,7 @@ def sample_distribution() -> dict:
                 "url": "https://github.com/example/alpha_mono",
                 "ref": {"kind": "branch", "value": "main"},
                 "governance": "foundation",
-                "reference_design": ["pov"],
+                "reference_design": True,
                 "maintainers": [
                     {
                         "name": "Alpha Dev",
@@ -99,7 +99,7 @@ def sample_distribution() -> dict:
 
 @pytest.fixture
 def dependent_distribution() -> dict:
-    """Return a v3 graph with transitive, shared, and same-repository dependencies."""
+    """Return a v4 graph with transitive, shared, and same-repository dependencies."""
 
     def repo(name: str, packages: dict) -> dict:
         return {
@@ -109,7 +109,7 @@ def dependent_distribution() -> dict:
         }
 
     return {
-        "schema_version": "3",
+        "schema_version": "4",
         "ros_distro": "jazzy",
         "repositories": {
             "mid-repo": repo(

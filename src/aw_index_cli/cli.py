@@ -18,7 +18,6 @@ from .compose import ComposeError
 from .compose import provenance_header
 from .compose import render_repos
 from .compose import select_repositories
-from .compose import unknown_reference_designs
 from .compose import unknown_tags
 from .gitref import remote_sha
 from .history import DEFAULT_DATA_REF
@@ -76,11 +75,8 @@ def _build_parser() -> argparse.ArgumentParser:
     compose.add_argument("--tags", nargs="*")
     compose.add_argument(
         "--reference-design",
-        nargs="*",
-        help=(
-            "select only repositories granted these named reference designs "
-            "(e.g. pov); ANDed with other filters"
-        ),
+        action="store_true",
+        help="select only entries marked as a reference design; ANDed with other filters",
     )
     compose.add_argument(
         "--autoware",
@@ -214,15 +210,6 @@ def _cmd_compose(args: argparse.Namespace) -> int:
             f"warning: no package in the distribution carries {label} {names}",
             file=sys.stderr,
         )
-    missing_designs = unknown_reference_designs(distribution, args.reference_design)
-    if missing_designs:
-        names = ", ".join(repr(design) for design in missing_designs)
-        label = "reference design" if len(missing_designs) == 1 else "reference designs"
-        print(
-            f"warning: no repository in the distribution carries {label} {names}",
-            file=sys.stderr,
-        )
-
     if args.stdout:
         print(text)
         return 0

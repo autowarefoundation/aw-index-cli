@@ -13,7 +13,6 @@ suite's guarantees but runs in CI's dedicated conformance job.
 
 from __future__ import annotations
 
-import copy
 import json
 from pathlib import Path
 import random
@@ -25,7 +24,6 @@ import pytest
 import yaml
 
 from aw_index_cli import __version__
-from aw_index_cli.compose import ComposeError
 from aw_index_cli.compose import provenance_header
 from aw_index_cli.compose import render_repos
 from aw_index_cli.compose import select_repositories
@@ -47,7 +45,7 @@ BASE = {
 # A distribution that exercises yamlScalar edge cases: a bool-like repo key
 # ("on") and a numeric-looking ref value ("1.20"), both of which PyYAML quotes.
 ADVERSARIAL = {
-    "schema_version": "2",
+    "schema_version": "4",
     "ros_distro": "jazzy",
     "repositories": {
         "on": {
@@ -67,7 +65,7 @@ ADVERSARIAL = {
 # (Python's ``... or {}`` vs JS's truthy ``[]``): such a repo selects nothing
 # and drops out, rather than erroring on one side only.
 EMPTY_CONTAINERS = {
-    "schema_version": "2",
+    "schema_version": "4",
     "ros_distro": "jazzy",
     "repositories": {
         "empty_list": {
@@ -183,7 +181,7 @@ def test_js_matches_python(sample_distribution, opts):
         {"packages": ["app_pkg", "mid_pkg"]},
     ],
 )
-def test_js_matches_python_v3_dependency_closure(dependent_distribution, opts):
+def test_js_matches_python_v4_dependency_closure(dependent_distribution, opts):
     merged = {**BASE, **opts}
     _assert_same_content(
         _js_compose(dependent_distribution, merged),
@@ -192,32 +190,12 @@ def test_js_matches_python_v3_dependency_closure(dependent_distribution, opts):
 
 
 def test_js_matches_python_reference_design_with_dependencies(dependent_distribution):
-    dependent_distribution["repositories"]["app-repo"]["reference_design"] = ["pov"]
-    opts = {**BASE, "referenceDesign": ["pov"]}
+    dependent_distribution["repositories"]["app-repo"]["reference_design"] = True
+    opts = {**BASE, "referenceDesign": True}
     _assert_same_content(
         _js_compose(dependent_distribution, opts),
         _py_compose(dependent_distribution, opts),
     )
-
-
-def test_js_matches_python_v2_dependency_rejection(sample_distribution):
-    distribution = copy.deepcopy(sample_distribution)
-    distribution["repositories"]["alpha-mono"]["packages"]["alpha_sensing"][
-        "index_dependencies"
-    ] = ["mid_pkg"]
-    opts = {**BASE, "packages": ["zeta_pkg"]}
-    with pytest.raises(ComposeError) as error:
-        _py_compose(distribution, opts)
-
-    proc = subprocess.run(
-        [NODE, str(DRIVER)],
-        input=json.dumps({"distribution": distribution, "options": opts}),
-        capture_output=True,
-        text=True,
-        cwd=REPO_ROOT,
-    )
-    assert proc.returncode != 0
-    assert str(error.value) in proc.stderr
 
 
 @pytest.mark.parametrize("opts", [{}, {"packages": ["kept_pkg"]}])
@@ -244,7 +222,7 @@ def test_js_version_matches_python():
 def _single_repo_dist(*, key: str, ref_value: str) -> dict:
     """Return a minimal one-repo distribution with the given key and ref value."""
     return {
-        "schema_version": "2",
+        "schema_version": "4",
         "ros_distro": "jazzy",
         "repositories": {
             key: {
@@ -336,11 +314,11 @@ def test_js_matches_python_fuzz_printable_ascii():
 
     for _doc in range(6):
         repositories = {}
-        for _ in range(150):
+        for repo_index in range(150):
             repositories[rand(1, 50)] = {  # key: 1..50 chars, non-empty, in-domain
                 "url": rand(1, 50),  # non-empty -> truthy, no folding under 80 cols
                 "ref": {"kind": "tag", "value": rand(1, 50)},
-                "packages": {"pkg": {"tags": ["t"]}},
+                "packages": {f"pkg_{repo_index}": {"tags": ["t"]}},
             }
-        dist = {"schema_version": "2", "ros_distro": "jazzy", "repositories": repositories}
+        dist = {"schema_version": "4", "ros_distro": "jazzy", "repositories": repositories}
         _assert_same_content(_js_compose(dist, BASE), _py_compose(dist, BASE))

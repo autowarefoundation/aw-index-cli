@@ -20,8 +20,9 @@ Keep `VERSION` in `compose.mjs` equal to `__version__` in `src/aw_index_cli/__in
 import { composeReposFile, composeCommand } from "./compose.mjs";
 
 // distribution: the parsed distributions/<distro>.yaml shape
-//   { schema_version: "3", repositories: {
+//   { schema_version: "4", repositories: {
 //       <repoKey>: { url, ref: {kind, value},
+//                    reference_design?: true,
 //                    packages: {<name>: {tags, index_dependencies?: [<packageName>]}} }
 //   } }
 const reposText = composeReposFile(distribution, {
@@ -36,10 +37,9 @@ const command = composeCommand({ rosDistro: "jazzy", packages: ["autoware_livox_
 ```
 
 Lower-level exports (`selectRepositories`, `toReposEntries`, `provenanceHeader`, `renderRepos`, `yamlScalar`) mirror the Python functions of the same names.
-For schema v3, selection first applies the filters, then includes transitive `index_dependencies` even when they do not match those filters.
+For schema v4, selection first applies the filters, then includes transitive `index_dependencies` even when they do not match those filters.
 Pass `includeDependencies: false` to `selectRepositories` for roots-only listing.
-`referenceDesign` filters root repositories by their `reference_design` grants before dependency expansion, matching the Python CLI's `--reference-design`.
-Schema v2 documents declaring `index_dependencies` are rejected.
+Set `referenceDesign: true` to filter root repositories to entries marked `reference_design: true` before dependency expansion, matching the Python CLI's `--reference-design`.
 
 ## Consuming from the browse site
 

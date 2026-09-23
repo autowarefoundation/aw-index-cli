@@ -13,7 +13,7 @@ DEFAULT_REPO = "autowarefoundation/autoware-index"
 DEFAULT_REF = "main"
 RAW_URL = "https://raw.githubusercontent.com/{repo}/{ref}/distributions/{ros_distro}.yaml"
 VOCABULARY_RAW_URL = "https://raw.githubusercontent.com/{repo}/{ref}/schema/tags.yaml"
-SUPPORTED_SCHEMA_VERSIONS = ("2", "3")
+SUPPORTED_SCHEMA_VERSIONS = ("4",)
 
 
 class RegistryError(Exception):
@@ -111,16 +111,12 @@ def load_distribution(
                 f"distribution for {ros_distro}: repository {key!r} must be "
                 f"a mapping, got {type(spec).__name__}"
             )
-        if schema_version == "2":
-            packages = spec.get("packages")
-            if isinstance(packages, dict):
-                for name, package_spec in packages.items():
-                    if isinstance(package_spec, dict) and "index_dependencies" in package_spec:
-                        raise RegistryError(
-                            f"distribution for {ros_distro}: package {name!r} in repository "
-                            f"{key!r} declares 'index_dependencies' under schema_version '2'; "
-                            "use schema_version '3'"
-                        )
+        marker = spec.get("reference_design")
+        if marker is not None and not isinstance(marker, bool):
+            raise RegistryError(
+                f"distribution for {ros_distro}: repository {key!r} has "
+                f"'reference_design' that is not a boolean (got {type(marker).__name__})"
+            )
     return parsed
 
 

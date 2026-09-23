@@ -12,7 +12,6 @@ from aw_index_cli.compose import provenance_header
 from aw_index_cli.compose import render_repos
 from aw_index_cli.compose import select_repositories
 from aw_index_cli.compose import to_repos_entries
-from aw_index_cli.compose import unknown_reference_designs
 from aw_index_cli.compose import unknown_tags
 
 
@@ -20,15 +19,7 @@ def _selection_names(distribution: dict, **filters) -> list[tuple[str, list[str]
     return [(key, names) for key, _spec, names in select_repositories(distribution, **filters)]
 
 
-def test_v2_index_dependencies_fail_even_when_filtered_out(sample_distribution):
-    sample_distribution["repositories"]["alpha-mono"]["packages"]["alpha_sensing"][
-        "index_dependencies"
-    ] = ["mid_pkg"]
-    with pytest.raises(ComposeError, match="index_dependencies.*schema_version '2'"):
-        select_repositories(sample_distribution, packages=["zeta_pkg"])
-
-
-def test_v3_dependencies_expand_after_filters(dependent_distribution):
+def test_v4_dependencies_expand_after_filters(dependent_distribution):
     expected = [
         ("app-repo", ["app_pkg", "same_repo_pkg"]),
         ("leaf-repo", ["leaf_pkg"]),
@@ -42,22 +33,30 @@ def test_v3_dependencies_expand_after_filters(dependent_distribution):
         assert _selection_names(dependent_distribution, **filters) == expected
 
 
-def test_v3_reference_design_filters_roots_before_dependency_expansion(dependent_distribution):
-    dependent_distribution["repositories"]["app-repo"]["reference_design"] = ["pov"]
-    assert _selection_names(dependent_distribution, reference_design=["pov"]) == [
+def test_v4_reference_design_filters_roots_before_dependency_expansion(
+    dependent_distribution,
+):
+    dependent_distribution["repositories"]["app-repo"]["reference_design"] = True
+    assert _selection_names(dependent_distribution, reference_design=True) == [
         ("app-repo", ["app_pkg", "same_repo_pkg"]),
         ("leaf-repo", ["leaf_pkg"]),
         ("mid-repo", ["mid_pkg"]),
     ]
 
 
-def test_v3_can_select_roots_only_for_list(dependent_distribution):
+def test_named_reference_design_list_is_rejected(sample_distribution):
+    sample_distribution["repositories"]["alpha-mono"]["reference_design"] = ["pov"]
+    with pytest.raises(ComposeError, match="reference_design.*not a boolean.*list"):
+        select_repositories(sample_distribution, reference_design=True)
+
+
+def test_v4_can_select_roots_only_for_list(dependent_distribution):
     assert _selection_names(
         dependent_distribution, packages=["app_pkg"], include_dependencies=False
     ) == [("app-repo", ["app_pkg"])]
 
 
-def test_v3_unknown_dependency_fails(dependent_distribution):
+def test_v4_unknown_dependency_fails(dependent_distribution):
     dependent_distribution["repositories"]["mid-repo"]["packages"]["mid_pkg"][
         "index_dependencies"
     ] = ["missing_pkg"]
@@ -65,7 +64,7 @@ def test_v3_unknown_dependency_fails(dependent_distribution):
         select_repositories(dependent_distribution, packages=["app_pkg"])
 
 
-def test_v3_dependency_cycle_fails_with_path(dependent_distribution):
+def test_v4_dependency_cycle_fails_with_path(dependent_distribution):
     dependent_distribution["repositories"]["leaf-repo"]["packages"]["leaf_pkg"][
         "index_dependencies"
     ] = ["app_pkg"]
@@ -76,7 +75,7 @@ def test_v3_dependency_cycle_fails_with_path(dependent_distribution):
 
 
 @pytest.mark.parametrize("dependencies", ["mid_pkg", None, ["mid_pkg", 7]])
-def test_v3_invalid_dependency_list_fails(dependent_distribution, dependencies):
+def test_v4_invalid_dependency_list_fails(dependent_distribution, dependencies):
     dependent_distribution["repositories"]["app-repo"]["packages"]["app_pkg"][
         "index_dependencies"
     ] = dependencies
@@ -84,7 +83,7 @@ def test_v3_invalid_dependency_list_fails(dependent_distribution, dependencies):
         select_repositories(dependent_distribution, packages=["app_pkg"])
 
 
-def test_v3_dependency_output_is_deterministic(dependent_distribution):
+def test_v4_dependency_output_is_deterministic(dependent_distribution):
     reversed_distribution = copy.deepcopy(dependent_distribution)
     reversed_distribution["repositories"] = dict(
         reversed(list(reversed_distribution["repositories"].items()))
@@ -254,29 +253,15 @@ def test_select_existing_package_excluded_by_other_filter_is_not_unknown(
 
 
 def test_select_by_reference_design(sample_distribution):
-    selected = select_repositories(sample_distribution, reference_design=["pov"])
+    selected = select_repositories(sample_distribution, reference_design=True)
     assert [key for key, _spec, _names in selected] == ["alpha-mono"]
 
 
 def test_select_reference_design_anded_with_tags(sample_distribution):
-    selected = select_repositories(
-        sample_distribution, tags=["perception"], reference_design=["pov"]
-    )
+    selected = select_repositories(sample_distribution, tags=["perception"], reference_design=True)
     assert [(key, names) for key, _spec, names in selected] == [
         ("alpha-mono", ["alpha_perception"])
     ]
-
-
-def test_select_unknown_reference_design_is_empty_not_an_error(sample_distribution):
-    # Unlike --repository/--packages, the legal design names live in the
-    # registry schema the CLI never fetches: empty result, cli-level warning.
-    assert select_repositories(sample_distribution, reference_design=["lsa"]) == []
-
-
-def test_unknown_reference_designs_reports_absent_sorted(sample_distribution):
-    assert unknown_reference_designs(sample_distribution, None) == []
-    assert unknown_reference_designs(sample_distribution, ["pov"]) == []
-    assert unknown_reference_designs(sample_distribution, ["zz", "aa", "pov"]) == ["aa", "zz"]
 
 
 def test_unknown_tags_empty_without_filter(sample_distribution):
@@ -497,9 +482,9 @@ def test_provenance_header_records_reference_design_filter():
         tool_version="0.1.0",
         ros_distro="jazzy",
         source="src",
-        reference_design=["pov"],
+        reference_design=True,
     )
-    assert "# reference_design: pov" in lines
+    assert "# reference_design: true" in lines
 
 
 def test_provenance_header_filter_lines_omitted_when_absent():
