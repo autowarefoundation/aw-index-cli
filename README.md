@@ -2,18 +2,14 @@
 
 [![ci](https://github.com/autowarefoundation/aw-index-cli/actions/workflows/ci.yaml/badge.svg)](https://github.com/autowarefoundation/aw-index-cli/actions/workflows/ci.yaml)
 
-`aw-index-cli` is the consumer CLI for the [Autoware Index][index] registry. It
-reads a distribution manifest (`distributions/<rosdistro>.yaml`) and composes a
-[vcs2l][vcs2l] `.repos` file you can `vcs import` into a workspace.
+`aw-index-cli` is the consumer CLI for the [Autoware Index][index] registry.
+It reads a distribution manifest (`distributions/<rosdistro>.yaml`) and composes a [vcs2l][vcs2l] `.repos` file you can `vcs import` into a workspace.
 
-The registry is **repository-keyed**: each entry is one repository with **exactly
-one `ref`** and the packages it hosts.
+The registry is **repository-keyed**: each entry is one repository with **exactly one `ref`** and the packages it hosts.
 
-Schema v3 packages may declare `index_dependencies`, a list of other registered
-package names in the same ROS distribution. `compose` includes these packages'
-repositories recursively. Schema v2 distributions remain supported, but a v2
-package declaring `index_dependencies` is rejected so dependencies cannot be
-silently omitted.
+Schema v3 packages may declare `index_dependencies`, a list of other registered package names in the same ROS distribution.
+`compose` includes these packages' repositories recursively.
+Schema v2 distributions remain supported, but a v2 package declaring `index_dependencies` is rejected so dependencies cannot be silently omitted.
 
 [index]: https://autowarefoundation.github.io/autoware-index/
 [vcs2l]: https://github.com/ros-infrastructure/vcs2l
@@ -37,9 +33,8 @@ pipx upgrade aw-index-cli   # update to the latest release
 
 ## `compose`
 
-Select what you need by package, repository, tag, or reference design. The
-distribution is fetched from GitHub by default, so no registry checkout is
-required.
+Select what you need by package, repository, tag, or reference design.
+The distribution is fetched from GitHub by default, so no registry checkout is required.
 
 ```bash
 # Recommended: compose just the packages you want.
@@ -63,12 +58,10 @@ aw-index-cli compose --rosdistro jazzy \
 ```
 
 > [!TIP]
-> Omitting all of `--packages`, `--repository`, `--tags`, and
-> `--reference-design` composes the **entire** distribution. That is
-> supported, but usually you want to name what you consume.
+> Omitting all of `--packages`, `--repository`, `--tags`, and `--reference-design` composes the **entire** distribution.
+> That is supported, but usually you want to name what you consume.
 
-Example output for `compose --rosdistro jazzy --repository livox-tools`
-(a monorepo entry hosting two registered packages):
+Example output for `compose --rosdistro jazzy --repository livox-tools` (a monorepo entry hosting two registered packages):
 
 ```yaml
 # aw-index-cli 0.4.0
@@ -104,21 +97,16 @@ aw-index-cli compose --rosdistro jazzy \
 
 ### How entries are composed
 
-- **Entry keys are registry repository keys**, the directory `vcs import`
-  clones into.
-- **Filters are ANDed to choose root packages.** In schema v3, each root's
-  `index_dependencies` are then included transitively, regardless of the
-  filters. For example, selecting a planning package also imports its indexed
-  common library even when that library does not match `--tags planning`.
+- **Entry keys are registry repository keys**, the directory `vcs import` clones into.
+- **Filters are ANDed to choose root packages.**
+  In schema v3, each root's `index_dependencies` are then included transitively, regardless of the filters.
+  For example, selecting a planning package also imports its indexed common library even when that library does not match `--tags planning`.
   Unknown dependency names and dependency cycles are errors.
-- An unknown `--packages` name or `--repository` key is a hard error, never a
-  silent empty result.
-- **A monorepo collapses to one entry** at its single `ref`, however many of its
-  packages are selected or required as dependencies.
-- **Each entry is pure vcs2l**: `type`/`url`/`version` only. The selected
-  and dependency package names live in the `# selected packages by repository:`
-  header comment, not the YAML body. `check` reads this header to verify the
-  included packages.
+- An unknown `--packages` name or `--repository` key is a hard error, never a silent empty result.
+- **A monorepo collapses to one entry** at its single `ref`, however many of its packages are selected or required as dependencies.
+- **Each entry is pure vcs2l**: `type`/`url`/`version` only.
+  The selected and dependency package names live in the `# selected packages by repository:` header comment, not the YAML body.
+  `check` reads this header to verify the included packages.
 
 For example, a schema v3 package can declare:
 
@@ -129,12 +117,11 @@ packages:
     index_dependencies: [my_map_library]
 ```
 
-`my_map_library` must be registered in the same distribution. The `.repos`
-file imports its repository automatically when you compose `my_planner`.
-Registration derives these Index edges from upstream `package.xml` dependency
-names. If a dependency also has a ROS build farm binary, the Index source is
-included in the workspace. Install remaining dependencies with rosdep after
-importing:
+`my_map_library` must be registered in the same distribution.
+The `.repos` file imports its repository automatically when you compose `my_planner`.
+Registration derives these Index edges from upstream `package.xml` dependency names.
+If a dependency also has a ROS build farm binary, the Index source is included in the workspace.
+Install remaining dependencies with rosdep after importing:
 
 ```bash
 rosdep install --from-paths src --ignore-src --rosdistro jazzy -y
@@ -144,8 +131,8 @@ colcon build --packages-up-to my_planner
 `--ignore-src` skips binary installation for packages in the source workspace.
 
 > [!NOTE]
-> A clone may include unregistered sibling packages the index makes no claims
-> about. To build only the packages you selected, pass their names to colcon:
+> A clone may include unregistered sibling packages the index makes no claims about.
+> To build only the packages you selected, pass their names to colcon:
 
 ```bash
 colcon build --packages-up-to autoware_livox_tag_filter  # names from the header comment
@@ -157,10 +144,8 @@ colcon build --packages-up-to autoware_livox_tag_filter  # names from the header
 - `--packages` / `--repository` / `--tags`: selection filters.
 - `--autoware`: informational only; recorded in the header, not a ref selector.
 - `--registry-path`: read a local file or registry directory instead of GitHub.
-- `--registry-repo` / `--registry-ref`: GitHub source repo (default
-  `autowarefoundation/autoware-index`) and git ref (default `main`).
-- `--repo-root` / `--name` / `--output`: where and under what name to write the
-  `.repos` (default `<repo-root>/repositories/autoware-index.repos`).
+- `--registry-repo` / `--registry-ref`: GitHub source repo (default `autowarefoundation/autoware-index`) and git ref (default `main`).
+- `--repo-root` / `--name` / `--output`: where and under what name to write the `.repos` (default `<repo-root>/repositories/autoware-index.repos`).
 - `--stdout`: print instead of writing a file.
 - `--no-timestamp`: omit `generated_at` for byte-identical output.
 
@@ -174,10 +159,8 @@ aw-index-cli compose --rosdistro jazzy --packages autoware_livox_tag_filter --st
 
 ## `check`
 
-Verify a composed `.repos` is still current: every repository at the registry's
-ref, and each package passing its latest **sweep**, the registry's periodic
-build/test against the current Autoware release. Intended as a **CI gate** after
-`vcs import`.
+Verify a composed `.repos` is still current: every repository at the registry's ref, and each package passing its latest **sweep**, the registry's periodic build/test against the current Autoware release.
+Intended as a **CI gate** after `vcs import`.
 
 ```bash
 # Auto-discovers ./autoware-index.repos or ./*/autoware-index.repos; rosdistro is
@@ -188,36 +171,29 @@ aw-index-cli check
 aw-index-cli check --repos repositories/autoware-index.repos --rosdistro jazzy
 ```
 
-Per repository it reports ref drift, removal from the registry, each package's
-latest status (`pass`/`fail`/`-`) and the Autoware version tested, and, for
-`branch` refs, whether the branch advanced past the last sweep.
+Per repository it reports ref drift, removal from the registry, each package's latest status (`pass`/`fail`/`-`) and the Autoware version tested, and, for `branch` refs, whether the branch advanced past the last sweep.
 
 - **Exit `0`**: all pass, no drift.
-- **Exit `1`**: any failing validation, ref drift, or removed package (with
-  `--strict`, also unvalidated packages or a branch that advanced since the sweep).
+- **Exit `1`**: any failing validation, ref drift, or removed package (with `--strict`, also unvalidated packages or a branch that advanced since the sweep).
 - **Exit `2`**: could not run (bad/missing `.repos`, registry load error).
 
-Options mirror `compose`, plus `--data-ref` (default `data`), `--strict`, and
-`--format {table,json}`.
+Options mirror `compose`, plus `--data-ref` (default `data`), `--strict`, and `--format {table,json}`.
 
 > [!NOTE]
-> Without `git` on PATH the branch-drift check is silently skipped, so a green
-> check isn't a complete guarantee.
+> Without `git` on PATH the branch-drift check is silently skipped, so a green check isn't a complete guarantee.
 
 ## `list`
 
-Enumerate the packages registered for a distro with their latest sweep status:
-discovery plus a health readout, without composing anything.
+Enumerate the packages registered for a distro with their latest sweep status: discovery plus a health readout, without composing anything.
 
 ```bash
 aw-index-cli list --rosdistro jazzy
 aw-index-cli list --rosdistro jazzy --tags sensing --format json
 ```
 
-Accepts the same selection filters as `compose`. Exit `0` normally; with
-`--strict`, exit `1` if any selected package is failing or unvalidated; exit `2`
-on a registry load error. `list` displays packages matching the filters; it does
-not expand their `index_dependencies`.
+Accepts the same selection filters as `compose`.
+Exit `0` normally; with `--strict`, exit `1` if any selected package is failing or unvalidated; exit `2` on a registry load error.
+`list` displays packages matching the filters; it does not expand their `index_dependencies`.
 
 ## License
 
