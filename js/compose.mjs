@@ -56,20 +56,41 @@ function rejectUnknown(singular, plural, missing) {
 /**
  * Return `[key, spec, selectedNames]` triples sorted by repo key.
  *
- * The three optional filters (`tags`, `packages`, `repository`) are ANDed;
- * omit all to select the whole distribution. An explicit `repository` key or
- * `packages` name absent from the *whole* distribution throws `ComposeError`
- * (so a typo never hides behind an empty result). Mirrors
- * `compose.select_repositories`.
+ * The four optional filters (`tags`, `packages`, `repository`,
+ * `referenceDesign`) are ANDed;
+ * omit all to select the whole distribution. In a v3 distribution, the
+ * filtered roots include their transitive `index_dependencies` regardless of
+ * the filters. Set `includeDependencies: false` for roots-only listing. An
+ * explicit `repository` key or `packages` name absent from the *whole*
+ * distribution throws `ComposeError`. Mirrors `compose.select_repositories`.
  */
 export function selectRepositories(
   distribution,
-  { tags = null, packages = null, repository = null } = {},
+  {
+    tags = null,
+    packages = null,
+    repository = null,
+    referenceDesign = null,
+    includeDependencies = true,
+  } = {},
 ) {
   const allRepos = (distribution && distribution.repositories) || {};
+  if (distribution?.schema_version === "2") {
+    for (const [key, spec] of Object.entries(allRepos)) {
+      if (!isMapping(spec?.packages)) continue;
+      for (const [name, packageSpec] of Object.entries(spec.packages)) {
+        if (isMapping(packageSpec) && Object.hasOwn(packageSpec, "index_dependencies")) {
+          throw new ComposeError(
+            `package '${name}' in repository '${key}' declares 'index_dependencies' under schema_version '2'; use schema_version '3'`,
+          );
+        }
+      }
+    }
+  }
   const wantedTags = new Set(tags || []);
   const wantedPkgs = new Set(packages || []);
   const wantedRepos = new Set(repository || []);
+  const wantedDesigns = new Set(referenceDesign || []);
 
   const knownPkgs = new Set();
   for (const spec of Object.values(allRepos)) {
@@ -93,6 +114,12 @@ export function selectRepositories(
   for (const key of Object.keys(allRepos).sort(cmp)) {
     if (wantedRepos.size && !wantedRepos.has(key)) continue;
     const spec = allRepos[key] || {};
+    if (
+      wantedDesigns.size &&
+      !(spec.reference_design || []).some((design) => wantedDesigns.has(design))
+    ) {
+      continue;
+    }
     const specPkgs = mappingOrEmpty(spec.packages);
     if (!isMapping(specPkgs)) {
       throw new ComposeError(
@@ -110,7 +137,73 @@ export function selectRepositories(
       .sort(cmp);
     if (names.length) selected.push([key, spec, names]);
   }
+  if (includeDependencies && distribution?.schema_version === "3" && selected.length) {
+    return withIndexDependencies(allRepos, selected);
+  }
   return selected;
+}
+
+function withIndexDependencies(allRepos, selected) {
+  const owners = new Map();
+  for (const repoKey of Object.keys(allRepos).sort(cmp)) {
+    const packageSpecs = mappingOrEmpty(allRepos[repoKey]?.packages);
+    if (!isMapping(packageSpecs)) continue; // Selected malformed repositories fail above.
+    for (const [name, packageSpec] of Object.entries(packageSpecs)) {
+      if (owners.has(name)) {
+        throw new ComposeError(`package '${name}' is registered by multiple repositories`);
+      }
+      owners.set(name, [repoKey, packageSpec ?? {}]);
+    }
+  }
+
+  const included = new Set(selected.flatMap(([, , names]) => names));
+  const visited = new Set();
+  const visiting = [];
+  const visit = (name) => {
+    const cycleStart = visiting.indexOf(name);
+    if (cycleStart !== -1) {
+      throw new ComposeError(
+        `index dependency cycle: ${[...visiting.slice(cycleStart), name].join(" -> ")}`,
+      );
+    }
+    if (visited.has(name)) return;
+    const [repoKey, packageSpec] = owners.get(name);
+    if (!isMapping(packageSpec)) {
+      throw new ComposeError(`package '${name}' in repository '${repoKey}' is not a mapping`);
+    }
+    const dependencies = Object.hasOwn(packageSpec, "index_dependencies")
+      ? packageSpec.index_dependencies
+      : [];
+    if (
+      !Array.isArray(dependencies) ||
+      dependencies.some((dependency) => typeof dependency !== "string")
+    ) {
+      throw new ComposeError(
+        `package '${name}' has invalid 'index_dependencies' (expected a list of package names)`,
+      );
+    }
+    visiting.push(name);
+    for (const dependency of [...dependencies].sort(cmp)) {
+      if (!owners.has(dependency)) {
+        throw new ComposeError(
+          `index dependency '${dependency}' of package '${name}' is not registered`,
+        );
+      }
+      included.add(dependency);
+      visit(dependency);
+    }
+    visiting.pop();
+    visited.add(name);
+  };
+
+  for (const name of [...included].sort(cmp)) visit(name);
+  const byRepo = new Map();
+  for (const name of included) {
+    const [repoKey] = owners.get(name);
+    if (!byRepo.has(repoKey)) byRepo.set(repoKey, []);
+    byRepo.get(repoKey).push(name);
+  }
+  return [...byRepo.keys()].sort(cmp).map((key) => [key, allRepos[key], byRepo.get(key).sort(cmp)]);
 }
 
 /**
@@ -153,6 +246,7 @@ export function provenanceHeader({
   tags = null,
   packages = null,
   repository = null,
+  referenceDesign = null,
   autoware = null,
   generatedAt = null,
   selection = null,
@@ -165,6 +259,9 @@ export function provenanceHeader({
   ];
   if (packages && packages.length) lines.push(`# packages: ${packages.join(", ")}`);
   if (repository && repository.length) lines.push(`# repository: ${repository.join(", ")}`);
+  if (referenceDesign && referenceDesign.length) {
+    lines.push(`# reference_design: ${referenceDesign.join(", ")}`);
+  }
   if (autoware != null) {
     lines.push(
       `# autoware: ${autoware} (informational only, not a ref selector; the registry tracks one ref per repository)`,
@@ -189,9 +286,14 @@ export function provenanceHeader({
  */
 export function renderRepos(
   distribution,
-  { tags = null, packages = null, repository = null, headerLines } = {},
+  { tags = null, packages = null, repository = null, referenceDesign = null, headerLines } = {},
 ) {
-  const repositories = selectRepositories(distribution, { tags, packages, repository });
+  const repositories = selectRepositories(distribution, {
+    tags,
+    packages,
+    repository,
+    referenceDesign,
+  });
   const entries = toReposEntries(repositories);
   return headerLines.join("\n") + "\n\n" + dumpBody(entries);
 }
@@ -217,14 +319,18 @@ export function composeReposFile(
     tags = null,
     packages = null,
     repository = null,
+    referenceDesign = null,
     autoware = null,
     generatedAt = null,
   } = {},
 ) {
   const src = source != null ? source : defaultSource();
-  const selection = selectRepositories(distribution, { tags, packages, repository }).map(
-    ([key, , names]) => [key, names],
-  );
+  const selection = selectRepositories(distribution, {
+    tags,
+    packages,
+    repository,
+    referenceDesign,
+  }).map(([key, , names]) => [key, names]);
   const headerLines = provenanceHeader({
     toolVersion,
     rosDistro,
@@ -232,11 +338,12 @@ export function composeReposFile(
     tags,
     packages,
     repository,
+    referenceDesign,
     autoware,
     generatedAt,
     selection,
   });
-  return renderRepos(distribution, { tags, packages, repository, headerLines });
+  return renderRepos(distribution, { tags, packages, repository, referenceDesign, headerLines });
 }
 
 /**

@@ -13,6 +13,7 @@ suite's guarantees but runs in CI's dedicated conformance job.
 
 from __future__ import annotations
 
+import copy
 import json
 from pathlib import Path
 import random
@@ -24,6 +25,7 @@ import pytest
 import yaml
 
 from aw_index_cli import __version__
+from aw_index_cli.compose import ComposeError
 from aw_index_cli.compose import provenance_header
 from aw_index_cli.compose import render_repos
 from aw_index_cli.compose import select_repositories
@@ -91,10 +93,15 @@ def _py_compose(distribution: dict, opts: dict) -> str:
     tags = opts.get("tags")
     packages = opts.get("packages")
     repository = opts.get("repository")
+    reference_design = opts.get("referenceDesign")
     selection = [
         (key, names)
         for key, _spec, names in select_repositories(
-            distribution, tags=tags, packages=packages, repository=repository
+            distribution,
+            tags=tags,
+            packages=packages,
+            repository=repository,
+            reference_design=reference_design,
         )
     ]
     header = provenance_header(
@@ -104,12 +111,18 @@ def _py_compose(distribution: dict, opts: dict) -> str:
         tags=tags,
         packages=packages,
         repository=repository,
+        reference_design=reference_design,
         autoware=opts.get("autoware"),
         generated_at=opts.get("generatedAt"),
         selection=selection,
     )
     return render_repos(
-        distribution, tags=tags, packages=packages, repository=repository, header_lines=header
+        distribution,
+        tags=tags,
+        packages=packages,
+        repository=repository,
+        reference_design=reference_design,
+        header_lines=header,
     )
 
 
@@ -159,6 +172,52 @@ def test_js_matches_python(sample_distribution, opts):
     _assert_same_content(
         _js_compose(sample_distribution, merged), _py_compose(sample_distribution, merged)
     )
+
+
+@pytest.mark.parametrize(
+    "opts",
+    [
+        {"packages": ["app_pkg"]},
+        {"tags": ["planning"]},
+        {"repository": ["app-repo"], "tags": ["planning"]},
+        {"packages": ["app_pkg", "mid_pkg"]},
+    ],
+)
+def test_js_matches_python_v3_dependency_closure(dependent_distribution, opts):
+    merged = {**BASE, **opts}
+    _assert_same_content(
+        _js_compose(dependent_distribution, merged),
+        _py_compose(dependent_distribution, merged),
+    )
+
+
+def test_js_matches_python_reference_design_with_dependencies(dependent_distribution):
+    dependent_distribution["repositories"]["app-repo"]["reference_design"] = ["pov"]
+    opts = {**BASE, "referenceDesign": ["pov"]}
+    _assert_same_content(
+        _js_compose(dependent_distribution, opts),
+        _py_compose(dependent_distribution, opts),
+    )
+
+
+def test_js_matches_python_v2_dependency_rejection(sample_distribution):
+    distribution = copy.deepcopy(sample_distribution)
+    distribution["repositories"]["alpha-mono"]["packages"]["alpha_sensing"][
+        "index_dependencies"
+    ] = ["mid_pkg"]
+    opts = {**BASE, "packages": ["zeta_pkg"]}
+    with pytest.raises(ComposeError) as error:
+        _py_compose(distribution, opts)
+
+    proc = subprocess.run(
+        [NODE, str(DRIVER)],
+        input=json.dumps({"distribution": distribution, "options": opts}),
+        capture_output=True,
+        text=True,
+        cwd=REPO_ROOT,
+    )
+    assert proc.returncode != 0
+    assert str(error.value) in proc.stderr
 
 
 @pytest.mark.parametrize("opts", [{}, {"packages": ["kept_pkg"]}])

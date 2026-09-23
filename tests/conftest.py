@@ -98,6 +98,44 @@ def sample_distribution() -> dict:
 
 
 @pytest.fixture
+def dependent_distribution() -> dict:
+    """Return a v3 graph with transitive, shared, and same-repository dependencies."""
+
+    def repo(name: str, packages: dict) -> dict:
+        return {
+            "url": f"https://github.com/example/{name}",
+            "ref": {"kind": "branch", "value": "main"},
+            "packages": packages,
+        }
+
+    return {
+        "schema_version": "3",
+        "ros_distro": "jazzy",
+        "repositories": {
+            "mid-repo": repo(
+                "mid",
+                {"mid_pkg": {"tags": ["common-library"], "index_dependencies": ["leaf_pkg"]}},
+            ),
+            "unrelated-repo": repo("unrelated", {"unrelated_pkg": {"tags": ["visualization"]}}),
+            "app-repo": repo(
+                "app",
+                {
+                    "app_pkg": {
+                        "tags": ["planning"],
+                        "index_dependencies": ["mid_pkg", "same_repo_pkg"],
+                    },
+                    "same_repo_pkg": {
+                        "tags": ["common-library"],
+                        "index_dependencies": ["leaf_pkg"],
+                    },
+                },
+            ),
+            "leaf-repo": repo("leaf", {"leaf_pkg": {"tags": ["common-library"]}}),
+        },
+    }
+
+
+@pytest.fixture
 def distributions_dir(tmp_path, sample_distribution):
     """Create a temp registry directory holding ``distributions/jazzy.yaml``."""
     dist_dir = tmp_path / "distributions"

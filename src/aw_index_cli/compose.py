@@ -23,6 +23,7 @@ def select_repositories(
     *,
     packages: list[str] | None = None,
     repository: list[str] | None = None,
+    include_dependencies: bool = True,
     reference_design: list[str] | None = None,
 ) -> list[tuple[str, dict, list[str]]]:
     """Return ``(key, spec, selected_packages)`` triples sorted by repo key.
@@ -37,13 +38,27 @@ def select_repositories(
       ``reference_design`` names intersect these.
 
     A repository is selected when at least one of its packages survives every
-    given filter; its ``selected_packages`` names are sorted. An explicit
+    given filter. For a v3 distribution, the selected packages then pull in
+    their transitive ``index_dependencies``, even when those dependencies do
+    not match the filters. ``include_dependencies=False`` keeps the original
+    filtered selection for commands such as ``list``. Package names within
+    each repository are sorted. An explicit
     ``repository`` key or ``packages`` name that is absent from the *whole*
     distribution (independent of the other filters, so a typo never hides
     behind an empty result) raises :class:`ComposeError`, as does a selected
     repository whose ``packages`` is not a mapping.
     """
     all_repos = distribution.get("repositories") or {}
+    if distribution.get("schema_version") == "2":
+        for key, spec in all_repos.items():
+            package_specs = (spec or {}).get("packages")
+            if isinstance(package_specs, dict):
+                for name, package_spec in package_specs.items():
+                    if isinstance(package_spec, dict) and "index_dependencies" in package_spec:
+                        raise ComposeError(
+                            f"package {name!r} in repository {key!r} declares "
+                            "'index_dependencies' under schema_version '2'; use schema_version '3'"
+                        )
     wanted_tags = set(tags or [])
     wanted_pkgs = set(packages or [])
     wanted_repos = set(repository or [])
@@ -81,7 +96,65 @@ def select_repositories(
         )
         if names:
             selected.append((key, spec, names))
+    if include_dependencies and distribution.get("schema_version") == "3" and selected:
+        return _with_index_dependencies(all_repos, selected)
     return selected
+
+
+def _with_index_dependencies(
+    all_repos: dict, selected: list[tuple[str, dict, list[str]]]
+) -> list[tuple[str, dict, list[str]]]:
+    """Expand filtered roots to their full v3 package dependency closure."""
+    owners: dict[str, tuple[str, dict]] = {}
+    for repo_key, repo in sorted(all_repos.items()):
+        package_specs = (repo or {}).get("packages") or {}
+        if not isinstance(package_specs, dict):
+            continue  # A selected malformed repository already fails above.
+        for name, package_spec in package_specs.items():
+            if name in owners:
+                raise ComposeError(f"package {name!r} is registered by multiple repositories")
+            owners[name] = (repo_key, package_spec if package_spec is not None else {})
+
+    included = {name for _key, _spec, names in selected for name in names}
+    visited: set[str] = set()
+    visiting: list[str] = []
+
+    def visit(name: str) -> None:
+        if name in visiting:
+            cycle = visiting[visiting.index(name) :] + [name]
+            raise ComposeError(f"index dependency cycle: {' -> '.join(cycle)}")
+        if name in visited:
+            return
+        repo_key, package_spec = owners[name]
+        if not isinstance(package_spec, dict):
+            raise ComposeError(f"package {name!r} in repository {repo_key!r} is not a mapping")
+        dependencies = package_spec.get("index_dependencies", [])
+        if not isinstance(dependencies, list) or any(
+            not isinstance(dependency, str) for dependency in dependencies
+        ):
+            raise ComposeError(
+                f"package {name!r} has invalid 'index_dependencies' "
+                "(expected a list of package names)"
+            )
+        visiting.append(name)
+        for dependency in sorted(dependencies):
+            if dependency not in owners:
+                raise ComposeError(
+                    f"index dependency {dependency!r} of package {name!r} is not registered"
+                )
+            included.add(dependency)
+            visit(dependency)
+        visiting.pop()
+        visited.add(name)
+
+    for name in sorted(included):
+        visit(name)
+
+    by_repo: dict[str, list[str]] = {}
+    for name in included:
+        repo_key, _package_spec = owners[name]
+        by_repo.setdefault(repo_key, []).append(name)
+    return [(key, all_repos[key], sorted(names)) for key, names in sorted(by_repo.items())]
 
 
 def unknown_tags(distribution: dict, tags: list[str] | None) -> list[str]:

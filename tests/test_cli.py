@@ -263,6 +263,61 @@ def test_compose_packages_selection(distributions_dir, capsys):
     assert "#   alpha-mono: alpha_sensing" in out
 
 
+def test_compose_v3_pulls_dependencies_and_checks_them(
+    dependent_distribution, tmp_path, monkeypatch, capsys
+):
+    registry_file = tmp_path / "jazzy.yaml"
+    registry_file.write_text(yaml.safe_dump(dependent_distribution), encoding="utf-8")
+    rc = main(
+        [
+            "compose",
+            "--rosdistro",
+            "jazzy",
+            "--registry-path",
+            str(registry_file),
+            "--packages",
+            "app_pkg",
+            "--stdout",
+            "--no-timestamp",
+        ]
+    )
+    assert rc == 0
+    repos_text = capsys.readouterr().out
+    assert list(yaml.safe_load(repos_text)["repositories"]) == [
+        "app-repo",
+        "leaf-repo",
+        "mid-repo",
+    ]
+    assert "# packages: app_pkg" in repos_text
+    assert "#   app-repo: app_pkg, same_repo_pkg" in repos_text
+    assert "#   leaf-repo: leaf_pkg" in repos_text
+    assert "#   mid-repo: mid_pkg" in repos_text
+
+    repos_file = tmp_path / "autoware-index.repos"
+    repos_file.write_text(repos_text, encoding="utf-8")
+    monkeypatch.setattr(cli, "latest_record", lambda *args, **kwargs: None)
+    monkeypatch.setattr(cli, "remote_sha", lambda *args: None)
+    rc = main(
+        [
+            "check",
+            "--repos",
+            str(repos_file),
+            "--registry-path",
+            str(registry_file),
+            "--format",
+            "json",
+        ]
+    )
+    assert rc == 0
+    rows = json.loads(capsys.readouterr().out)["rows"]
+    assert {row["package"] for row in rows} == {
+        "app_pkg",
+        "same_repo_pkg",
+        "leaf_pkg",
+        "mid_pkg",
+    }
+
+
 def test_compose_repository_selection(distributions_dir, capsys):
     rc = main(
         [
@@ -378,7 +433,7 @@ def test_compose_rejects_schema_version_1(tmp_path, capsys):
     assert captured.err.startswith("error:")
     assert "'1'" in captured.err
     assert "not supported by this aw-index-cli" in captured.err
-    assert "(supports: '2')" in captured.err
+    assert "(supports: '2', '3')" in captured.err
     # The document is older than the CLI, so no "please upgrade" advice.
     assert "upgrade" not in captured.err
 
@@ -678,6 +733,28 @@ def test_list_json(distributions_dir, monkeypatch, capsys, history_urlopen):
     data = json.loads(capsys.readouterr().out)
     assert data["rosdistro"] == "jazzy"
     assert data["rows"][0]["package"] == "mid_pkg"
+
+
+def test_list_v3_keeps_filtered_roots_only(dependent_distribution, tmp_path, monkeypatch, capsys):
+    registry_file = tmp_path / "jazzy.yaml"
+    registry_file.write_text(yaml.safe_dump(dependent_distribution), encoding="utf-8")
+    monkeypatch.setattr(cli, "latest_record", lambda *args, **kwargs: None)
+    rc = main(
+        [
+            "list",
+            "--rosdistro",
+            "jazzy",
+            "--registry-path",
+            str(registry_file),
+            "--packages",
+            "app_pkg",
+            "--format",
+            "json",
+        ]
+    )
+    assert rc == 0
+    rows = json.loads(capsys.readouterr().out)["rows"]
+    assert [row["package"] for row in rows] == ["app_pkg"]
 
 
 # --- check ---------------------------------------------------------------------

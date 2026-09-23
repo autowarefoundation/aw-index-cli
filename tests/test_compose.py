@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import copy
+
 import pytest
 import yaml
 
@@ -12,6 +14,86 @@ from aw_index_cli.compose import select_repositories
 from aw_index_cli.compose import to_repos_entries
 from aw_index_cli.compose import unknown_reference_designs
 from aw_index_cli.compose import unknown_tags
+
+
+def _selection_names(distribution: dict, **filters) -> list[tuple[str, list[str]]]:
+    return [(key, names) for key, _spec, names in select_repositories(distribution, **filters)]
+
+
+def test_v2_index_dependencies_fail_even_when_filtered_out(sample_distribution):
+    sample_distribution["repositories"]["alpha-mono"]["packages"]["alpha_sensing"][
+        "index_dependencies"
+    ] = ["mid_pkg"]
+    with pytest.raises(ComposeError, match="index_dependencies.*schema_version '2'"):
+        select_repositories(sample_distribution, packages=["zeta_pkg"])
+
+
+def test_v3_dependencies_expand_after_filters(dependent_distribution):
+    expected = [
+        ("app-repo", ["app_pkg", "same_repo_pkg"]),
+        ("leaf-repo", ["leaf_pkg"]),
+        ("mid-repo", ["mid_pkg"]),
+    ]
+    for filters in (
+        {"packages": ["app_pkg"]},
+        {"tags": ["planning"]},
+        {"repository": ["app-repo"], "tags": ["planning"]},
+    ):
+        assert _selection_names(dependent_distribution, **filters) == expected
+
+
+def test_v3_reference_design_filters_roots_before_dependency_expansion(dependent_distribution):
+    dependent_distribution["repositories"]["app-repo"]["reference_design"] = ["pov"]
+    assert _selection_names(dependent_distribution, reference_design=["pov"]) == [
+        ("app-repo", ["app_pkg", "same_repo_pkg"]),
+        ("leaf-repo", ["leaf_pkg"]),
+        ("mid-repo", ["mid_pkg"]),
+    ]
+
+
+def test_v3_can_select_roots_only_for_list(dependent_distribution):
+    assert _selection_names(
+        dependent_distribution, packages=["app_pkg"], include_dependencies=False
+    ) == [("app-repo", ["app_pkg"])]
+
+
+def test_v3_unknown_dependency_fails(dependent_distribution):
+    dependent_distribution["repositories"]["mid-repo"]["packages"]["mid_pkg"][
+        "index_dependencies"
+    ] = ["missing_pkg"]
+    with pytest.raises(ComposeError, match="index dependency 'missing_pkg'.*not registered"):
+        select_repositories(dependent_distribution, packages=["app_pkg"])
+
+
+def test_v3_dependency_cycle_fails_with_path(dependent_distribution):
+    dependent_distribution["repositories"]["leaf-repo"]["packages"]["leaf_pkg"][
+        "index_dependencies"
+    ] = ["app_pkg"]
+    with pytest.raises(
+        ComposeError, match="index dependency cycle: app_pkg -> mid_pkg -> leaf_pkg -> app_pkg"
+    ):
+        select_repositories(dependent_distribution, packages=["app_pkg"])
+
+
+@pytest.mark.parametrize("dependencies", ["mid_pkg", None, ["mid_pkg", 7]])
+def test_v3_invalid_dependency_list_fails(dependent_distribution, dependencies):
+    dependent_distribution["repositories"]["app-repo"]["packages"]["app_pkg"][
+        "index_dependencies"
+    ] = dependencies
+    with pytest.raises(ComposeError, match="invalid 'index_dependencies'"):
+        select_repositories(dependent_distribution, packages=["app_pkg"])
+
+
+def test_v3_dependency_output_is_deterministic(dependent_distribution):
+    reversed_distribution = copy.deepcopy(dependent_distribution)
+    reversed_distribution["repositories"] = dict(
+        reversed(list(reversed_distribution["repositories"].items()))
+    )
+    app = reversed_distribution["repositories"]["app-repo"]["packages"]["app_pkg"]
+    app["index_dependencies"].reverse()
+    assert _selection_names(dependent_distribution, packages=["app_pkg"]) == _selection_names(
+        reversed_distribution, packages=["app_pkg"]
+    )
 
 
 def test_select_no_tags_returns_all_sorted(sample_distribution):
