@@ -76,6 +76,27 @@ def select_repositories(
     return selected
 
 
+def unknown_tags(distribution: dict, tags: list[str] | None) -> list[str]:
+    """Return the requested tags that no package in the distribution carries.
+
+    Sorted for stable output. Unlike an unknown ``--packages`` name or
+    ``--repository`` key, an unknown tag is not a hard error: the tag
+    vocabulary lives in the registry, not in the distribution file, so a
+    valid id may simply have no usage yet. The CLI reports these as a
+    stderr warning while still composing the (possibly empty) output.
+    """
+    if not tags:
+        return []
+    carried: set[str] = set()
+    for spec in (distribution.get("repositories") or {}).values():
+        spec_pkgs = (spec or {}).get("packages")
+        if not isinstance(spec_pkgs, dict):
+            continue
+        for pkg in spec_pkgs.values():
+            carried.update((pkg or {}).get("tags") or [])
+    return sorted(set(tags) - carried)
+
+
 def to_repos_entries(repositories: list[tuple[str, dict, list[str]]]) -> dict:
     """Map selected repositories to an ordered ``key -> entry`` dict.
 
