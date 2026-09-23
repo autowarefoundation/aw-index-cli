@@ -115,7 +115,7 @@ repos:
         args: [--format=github-actions]
 
   - repo: https://github.com/autowarefoundation/autoware-spell-check-dict
-    rev: e9d756af3ac14bacd5c9cea188d47b39d3160f53
+    rev: 26ae52ec0c95bcc2c810c6445c380ed3c5251b6d
     hooks:
       - id: format-cspell-json
 
