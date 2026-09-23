@@ -271,3 +271,81 @@ def test_describe_source_remote():
 
 def test_describe_source_remote_defaults():
     assert describe_source() == "autowarefoundation/autoware-index@main"
+
+
+# ---------------------------------------------------------------------------
+# load_tag_aliases: best-effort vocabulary read
+# ---------------------------------------------------------------------------
+
+VOCAB_TEXT = """\
+groups:
+  g: G
+tags:
+  ml:
+    group: g
+    summary: s
+    aliases: [ai, deep-learning]
+  planning:
+    group: g
+    summary: s
+"""
+
+
+def test_load_tag_aliases_from_local_dir(tmp_path):
+    (tmp_path / "schema").mkdir()
+    (tmp_path / "schema" / "tags.yaml").write_text(VOCAB_TEXT, encoding="utf-8")
+    assert registry.load_tag_aliases(path=tmp_path) == {
+        "ai": "ml",
+        "deep-learning": "ml",
+    }
+
+
+def test_load_tag_aliases_missing_local_vocabulary_is_empty(tmp_path):
+    # A --registry-path checkout from before the vocabulary carried aliases.
+    assert registry.load_tag_aliases(path=tmp_path) == {}
+
+
+def test_load_tag_aliases_unparseable_vocabulary_is_empty(tmp_path):
+    (tmp_path / "schema").mkdir()
+    (tmp_path / "schema" / "tags.yaml").write_text("tags: {unclosed", encoding="utf-8")
+    assert registry.load_tag_aliases(path=tmp_path) == {}
+
+
+def test_load_tag_aliases_never_remaps_a_live_id(tmp_path):
+    # A malformed vocabulary must not let an alias shadow a live tag.
+    (tmp_path / "schema").mkdir()
+    (tmp_path / "schema" / "tags.yaml").write_text(
+        "tags:\n  a:\n    aliases: [planning]\n  planning:\n    summary: s\n",
+        encoding="utf-8",
+    )
+    assert registry.load_tag_aliases(path=tmp_path) == {}
+
+
+def test_load_tag_aliases_fetches_from_registry(monkeypatch):
+    captured = {}
+
+    def fake_urlopen(url, timeout=None):
+        captured["url"] = url
+        return _FakeResponse(VOCAB_TEXT.encode("utf-8"))
+
+    monkeypatch.setattr(registry, "urlopen", fake_urlopen)
+    aliases = registry.load_tag_aliases(repo="me/fork", ref="dev")
+    assert aliases["ai"] == "ml"
+    assert captured["url"] == "https://raw.githubusercontent.com/me/fork/dev/schema/tags.yaml"
+
+
+def test_load_tag_aliases_remote_404_is_empty(monkeypatch):
+    def fake_urlopen(url, timeout=None):
+        raise urllib.error.HTTPError(url, 404, "Not Found", {}, None)
+
+    monkeypatch.setattr(registry, "urlopen", fake_urlopen)
+    assert registry.load_tag_aliases() == {}
+
+
+def test_load_tag_aliases_remote_network_error_is_empty(monkeypatch):
+    # The alias read must never turn a working compose into a failure.
+    def fake_urlopen(url, timeout=None):
+        raise urllib.error.URLError("no network")
+
+    monkeypatch.setattr(registry, "urlopen", fake_urlopen)
+    assert registry.load_tag_aliases() == {}

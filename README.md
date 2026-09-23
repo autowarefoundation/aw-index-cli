@@ -44,7 +44,8 @@ aw-index-cli compose --rosdistro jazzy \
 aw-index-cli compose --rosdistro jazzy \
   --repository autoware_livox_tag_filter
 
-# Narrow by tag (filters can be combined; they are ANDed).
+# Narrow by tag (filters can be combined; they are ANDed). Aliases from the
+# registry vocabulary resolve too: --tags ai selects the same as --tags ml.
 aw-index-cli compose --rosdistro jazzy --tags sensing perception
 
 # Compose the repositories granted a named AWF reference design.

@@ -12,6 +12,7 @@ import yaml
 DEFAULT_REPO = "autowarefoundation/autoware-index"
 DEFAULT_REF = "main"
 RAW_URL = "https://raw.githubusercontent.com/{repo}/{ref}/distributions/{ros_distro}.yaml"
+VOCABULARY_RAW_URL = "https://raw.githubusercontent.com/{repo}/{ref}/schema/tags.yaml"
 SUPPORTED_SCHEMA_VERSION = "2"
 
 
@@ -111,6 +112,54 @@ def load_distribution(
                 f"a mapping, got {type(spec).__name__}"
             )
     return parsed
+
+
+def load_tag_aliases(
+    *,
+    path: str | Path | None = None,
+    repo: str = DEFAULT_REPO,
+    ref: str = DEFAULT_REF,
+    timeout: float = 30,
+) -> dict[str, str]:
+    """Best-effort ``alias -> canonical tag id`` map from the registry vocabulary.
+
+    The vocabulary (``schema/tags.yaml``) lives in the registry next to
+    ``distributions/``, and its per-tag ``aliases:`` lists make spellings like
+    ``ai`` resolve to the stored id ``ml``. A registry ref from before the
+    vocabulary carried aliases, and a local ``path`` that points at a bare
+    distribution file, must keep working: EVERY failure here (missing file,
+    fetch error, unparseable YAML, unexpected shape) degrades to "no aliases"
+    instead of raising.
+    """
+    try:
+        if path is not None:
+            target = Path(path) / "schema" / "tags.yaml"
+            if not target.is_file():
+                return {}
+            raw = target.read_text(encoding="utf-8")
+        else:
+            url = VOCABULARY_RAW_URL.format(repo=repo, ref=ref)
+            raw = _fetch_text(url, timeout=timeout, not_found_ok=True)
+            if raw is None:
+                return {}
+        parsed = yaml.safe_load(raw)
+    except (RegistryError, OSError, UnicodeDecodeError, yaml.YAMLError):
+        return {}
+    tags = parsed.get("tags") if isinstance(parsed, dict) else None
+    if not isinstance(tags, dict):
+        return {}
+    aliases: dict[str, str] = {}
+    for tag_id, spec in tags.items():
+        if not isinstance(tag_id, str) or not isinstance(spec, dict):
+            continue
+        raw_aliases = spec.get("aliases")
+        if not isinstance(raw_aliases, list):
+            continue
+        for alias in raw_aliases:
+            # Never let a malformed vocabulary remap a live id.
+            if isinstance(alias, str) and alias not in tags and alias not in aliases:
+                aliases[alias] = tag_id
+    return aliases
 
 
 def describe_source(

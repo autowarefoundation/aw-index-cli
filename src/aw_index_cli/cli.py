@@ -31,6 +31,7 @@ from .registry import DEFAULT_REPO
 from .registry import RegistryError
 from .registry import describe_source
 from .registry import load_distribution
+from .registry import load_tag_aliases
 from .report import render_json
 from .report import render_table
 from .workspace import discover_repos_files
@@ -133,7 +134,28 @@ def _build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _resolved_tags(args: argparse.Namespace) -> list[str] | None:
+    """Map alias spellings (``ai``) to their canonical ids (``ml``), best-effort.
+
+    The vocabulary rides the same registry source as the distribution. When it
+    cannot be read (an older registry ref, or a ``--registry-path`` naming a
+    bare distribution file), the typed tags pass through unchanged. The
+    provenance header keeps what the user typed either way.
+    """
+    if not args.tags:
+        return args.tags
+    aliases = load_tag_aliases(
+        path=args.registry_path,
+        repo=args.registry_repo,
+        ref=args.registry_ref,
+    )
+    if not aliases:
+        return args.tags
+    return [aliases.get(tag, tag) for tag in args.tags]
+
+
 def _cmd_compose(args: argparse.Namespace) -> int:
+    tags = _resolved_tags(args)
     try:
         distribution = load_distribution(
             args.rosdistro,
@@ -154,7 +176,7 @@ def _cmd_compose(args: argparse.Namespace) -> int:
             (key, names)
             for key, _spec, names in select_repositories(
                 distribution,
-                tags=args.tags,
+                tags=tags,
                 packages=args.packages,
                 repository=args.repository,
                 reference_design=args.reference_design,
@@ -174,7 +196,7 @@ def _cmd_compose(args: argparse.Namespace) -> int:
         )
         text = render_repos(
             distribution,
-            tags=args.tags,
+            tags=tags,
             packages=args.packages,
             repository=args.repository,
             reference_design=args.reference_design,
@@ -184,7 +206,7 @@ def _cmd_compose(args: argparse.Namespace) -> int:
         print(f"error: {exc}", file=sys.stderr)
         return 2
 
-    missing_tags = unknown_tags(distribution, args.tags)
+    missing_tags = unknown_tags(distribution, tags)
     if missing_tags:
         names = ", ".join(repr(tag) for tag in missing_tags)
         label = "tag" if len(missing_tags) == 1 else "tags"
@@ -316,7 +338,7 @@ def _cmd_list(args: argparse.Namespace) -> int:
         )
         selection = select_repositories(
             distribution,
-            tags=args.tags,
+            tags=_resolved_tags(args),
             packages=args.packages,
             repository=args.repository,
         )
